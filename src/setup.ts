@@ -21,7 +21,8 @@ const PERMISSION_BITS: bigint =
   BigInt(0x40) |          // Add Reactions
   BigInt(0x400000000) |   // Manage Threads
   BigInt(0x800000000) |   // Create Public Threads
-  BigInt(0x2000);         // Manage Messages
+  BigInt(0x2000) |        // Manage Messages
+  (1n << 51n);            // Pin Messages (separated from Manage Messages since 2026-01-12)
 
 function maskToken(token: string): string {
   if (token.length <= 8) return '****';
@@ -48,7 +49,23 @@ export async function runSetup(): Promise<void> {
         default: false,
       });
       if (!reconfigure) {
-        console.log('Setup cancelled.');
+        // Still offer to open the invite URL with current config
+        const reinvite = await confirm({
+          message: 'Open the bot invite URL to update permissions?',
+          default: true,
+        });
+        if (reinvite) {
+          const permissions = PERMISSION_BITS.toString();
+          const inviteUrl =
+            `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(existing.discordClientId)}` +
+            `&permissions=${permissions}&scope=bot%20applications.commands`;
+          console.log(`\nOpening invite URL...\n  ${inviteUrl}\n`);
+          try {
+            await open(inviteUrl);
+          } catch {
+            console.log('  Could not open browser. Please visit the URL above manually.');
+          }
+        }
         return;
       }
       console.log('');

@@ -1,0 +1,45 @@
+{
+  "name": "agent4discord",
+  "version": "0.1.0",
+  "description": "Remote Claude Code sessions through Discord",
+  "type": "module",
+  "bin": {
+    "agent4discord": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/cli.ts",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "discord",
+    "claude",
+    "claude-code",
+    "agent",
+    "bot"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
+    "@discordjs/rest": "^2.4.0",
+    "@inquirer/prompts": "^8.0.0",
+    "open": "^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.0",
+    "tsx": "^4.0.0",
+    "vitest": "^3.0.0",
+    "eslint": "^9.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

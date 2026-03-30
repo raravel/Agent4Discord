@@ -448,6 +448,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
         console.log(`[canUseTool] Resolved: tool=${toolName}, behavior=${result.behavior}`);
         return result;
       },
+      interaction.client,
     );
 
     // Persist to guild config
@@ -470,7 +471,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
     );
 
     const statusMsg = await channel.send({ embeds: [statusEmbed], components: [controlRow] });
-    await statusMsg.pin().catch(() => {});
+    await statusMsg.pin().catch((err) => console.warn('[session] Failed to pin status embed:', err.message));
 
     // Update the ephemeral message with a link to the new channel
     await interaction.editReply({
@@ -695,6 +696,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
         console.log(`[canUseTool] Resolved: tool=${toolName}, behavior=${result.behavior}`);
         return result;
       },
+      interaction.client,
     );
 
     // Persist to guild config
@@ -717,7 +719,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
     );
 
     const statusMsg = await channel.send({ embeds: [statusEmbed], components: [controlRow] });
-    await statusMsg.pin().catch(() => {});
+    await statusMsg.pin().catch((err) => console.warn('[session] Failed to pin status embed:', err.message));
 
     // Post previous conversation history
     await postSessionHistory(channel as TextChannel, state.selectedSessionId, state.path);

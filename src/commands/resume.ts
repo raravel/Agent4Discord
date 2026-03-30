@@ -51,11 +51,12 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
   }
 
   // Find the status embed -- try pinned first, then search recent messages
-  let statusMsg = (await channel.messages.fetchPinned()).find(
-    (m) => m.author.id === interaction.client.user?.id &&
-      m.embeds.length > 0 &&
-      m.embeds[0].fields.some((f) => f.name === 'Session ID'),
-  ) ?? null;
+  const pinned = await channel.messages.fetchPins();
+  let statusMsg = pinned.items.find(
+    (p) => p.message.author.id === interaction.client.user?.id &&
+      p.message.embeds.length > 0 &&
+      p.message.embeds[0].fields.some((f) => f.name === 'Session ID'),
+  )?.message ?? null;
 
   if (!statusMsg) {
     const recent = await channel.messages.fetch({ limit: 50 });
@@ -122,6 +123,7 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
       async (toolName, input) => {
         return requestPermission(channel, interaction.user.id, toolName, input);
       },
+      interaction.client,
     );
 
     // Persist to guild config

@@ -51,10 +51,10 @@ export async function handleModel(interaction: ChatInputCommandInteraction): Pro
 
   // Update the pinned status embed
   try {
-    const pinned = await channel.messages.fetchPinned();
-    const statusMsg = pinned.find(
-      (m) => m.author.id === interaction.client.user?.id && m.embeds.length > 0,
-    );
+    const pinned = await channel.messages.fetchPins();
+    const statusMsg = pinned.items.find(
+      (p) => p.message.author.id === interaction.client.user?.id && p.message.embeds.length > 0,
+    )?.message;
     if (statusMsg) {
       const embed = statusMsg.embeds[0];
       const updatedEmbed = buildStatusEmbed({

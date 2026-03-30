@@ -5,7 +5,7 @@ import { chunkMessage } from '../formatters/chunker.js';
 import { buildStatusEmbed, COLORS } from '../formatters/embedBuilder.js';
 import { StreamHandler } from './streamHandler.js';
 import { ToolProgressHandler } from './toolProgress.js';
-import { formatThreadName, formatToolInput } from '../formatters/toolFormatter.js';
+import { formatThreadName, formatToolInput, sendToThread } from '../formatters/toolFormatter.js';
 
 // Track active stream handlers per channel (keyed by "channelId:text" or "channelId:thinking")
 const activeStreams = new Map<string, StreamHandler>();
@@ -163,8 +163,20 @@ export function setupEventHandlers(client: Client): void {
             reason: `A4D tool call: ${block.name || 'unknown'}`,
           });
 
-          const inputText = formatToolInput(block.name || 'unknown', block.input || {});
-          await thread.send(inputText);
+          const toolName = block.name || 'unknown';
+          const inputText = formatToolInput(toolName, block.input || {});
+
+          // Determine a good filename for attachment if content is long
+          let attachName: string | undefined;
+          if (toolName === 'Write' || toolName === 'Edit') {
+            const filePath = (block.input as Record<string, any>)?.file_path || '';
+            const basename = filePath.split(/[/\\]/).pop() || 'content.txt';
+            attachName = basename;
+          } else if (toolName === 'Bash') {
+            attachName = 'command-output.txt';
+          }
+
+          await sendToThread(thread, inputText, attachName);
 
           trackThread(channelId, thread.id);
         }
@@ -195,10 +207,10 @@ export function setupEventHandlers(client: Client): void {
 
     // Update the pinned status embed with new cost
     try {
-      const pinned = await textChannel.messages.fetchPinned();
-      const statusMsg = pinned.find(
-        (m) => m.author.id === client.user?.id && m.embeds.length > 0,
-      );
+      const pinned = await textChannel.messages.fetchPins();
+      const statusMsg = pinned.items.find(
+        (p) => p.message.author.id === client.user?.id && p.message.embeds.length > 0,
+      )?.message;
       if (statusMsg) {
         const embed = statusMsg.embeds[0];
         const updatedEmbed = buildStatusEmbed({

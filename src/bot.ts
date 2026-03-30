@@ -11,6 +11,8 @@ import { sessionManager } from './sessions/sessionManager.js';
 import { setupEventHandlers, getAndClearTurnThreads } from './sessions/eventHandler.js';
 import { removeSessionFromGuild } from './sessions/sessionStore.js';
 import { setupUsageTracker } from './sessions/usageTracker.js';
+import { processAttachments } from './utils/attachments.js';
+import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
 
 export async function startBot(): Promise<void> {
   const config = loadConfig();
@@ -99,7 +101,34 @@ export async function startBot(): Promise<void> {
     await message.react('\u23f3').catch(() => {});
 
     try {
-      sessionManager.sendMessage(message.channelId, message.content);
+      // Process attachments if present
+      if (message.attachments.size > 0) {
+        const attachmentResults = await processAttachments(message.attachments, session.cwd);
+
+        if (attachmentResults.length > 0) {
+          const contentBlocks: ContentBlockParam[] = [];
+
+          if (message.content) {
+            contentBlocks.push({ type: 'text', text: message.content });
+          }
+
+          for (const result of attachmentResults) {
+            contentBlocks.push(...result.contentBlocks);
+            contentBlocks.push({ type: 'text', text: `[File saved to: ${result.savedPath}]` });
+          }
+
+          if (contentBlocks.length === 0) {
+            contentBlocks.push({ type: 'text', text: 'User attached file(s).' });
+          }
+
+          sessionManager.sendMessage(message.channelId, contentBlocks);
+        } else {
+          // All attachments failed to process — send text only
+          sessionManager.sendMessage(message.channelId, message.content || 'User sent attachments that could not be processed.');
+        }
+      } else {
+        sessionManager.sendMessage(message.channelId, message.content);
+      }
     } catch (err) {
       console.error(`[message] Failed to relay message to session:`, err);
       await message.reply('Could not send message to Claude Code session.').catch(() => {});

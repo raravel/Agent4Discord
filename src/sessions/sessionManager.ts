@@ -1,4 +1,6 @@
 // Session lifecycle -- AGE-016
+import fs from 'node:fs';
+import nodePath from 'node:path';
 import { EventEmitter } from 'node:events';
 import {
   query,
@@ -9,7 +11,10 @@ import {
   type SDKResultMessage,
   type SDKSystemMessage,
 } from '@anthropic-ai/claude-agent-sdk';
+import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
+import { AttachmentBuilder, GuildPremiumTier, type Client, type TextChannel } from 'discord.js';
 import { resolvePlugins } from '../utils/plugins.js';
+import { createDiscordToolServer, getUploadLimit } from '../tools/discordTools.js';
 
 export type SessionState = 'idle' | 'running' | 'stopped' | 'archived';
 
@@ -37,6 +42,7 @@ class SessionManager extends EventEmitter {
     cwd: string,
     model?: string,
     canUseTool?: CanUseTool,
+    client?: Client,
   ): ActiveSession {
     const controller = new AbortController();
 
@@ -53,6 +59,17 @@ class SessionManager extends EventEmitter {
 
     const plugins = resolvePlugins();
 
+    // Build MCP servers (discord tool for file attachment)
+    const mcpServers: Record<string, ReturnType<typeof createDiscordToolServer>> = {};
+    const allowedTools: string[] = [];
+
+    if (client) {
+      mcpServers.discord = createDiscordToolServer(
+        this._buildSendFile(client, channelId, guildId),
+      );
+      allowedTools.push('mcp__discord__attach_file');
+    }
+
     const q = query({
       prompt: messageStream(),
       options: {
@@ -63,6 +80,8 @@ class SessionManager extends EventEmitter {
         abortController: controller,
         canUseTool,
         plugins,
+        ...(Object.keys(mcpServers).length > 0 && { mcpServers }),
+        ...(allowedTools.length > 0 && { allowedTools }),
       },
     });
 
@@ -106,6 +125,7 @@ class SessionManager extends EventEmitter {
     cwd: string,
     model?: string,
     canUseTool?: CanUseTool,
+    client?: Client,
   ): ActiveSession {
     const controller = new AbortController();
 
@@ -122,6 +142,17 @@ class SessionManager extends EventEmitter {
 
     const plugins = resolvePlugins();
 
+    // Build MCP servers (discord tool for file attachment)
+    const mcpServers: Record<string, ReturnType<typeof createDiscordToolServer>> = {};
+    const allowedTools: string[] = [];
+
+    if (client) {
+      mcpServers.discord = createDiscordToolServer(
+        this._buildSendFile(client, channelId, guildId),
+      );
+      allowedTools.push('mcp__discord__attach_file');
+    }
+
     const q = query({
       prompt: messageStream(),
       options: {
@@ -133,6 +164,8 @@ class SessionManager extends EventEmitter {
         resume: sessionId,
         canUseTool,
         plugins,
+        ...(Object.keys(mcpServers).length > 0 && { mcpServers }),
+        ...(allowedTools.length > 0 && { allowedTools }),
       },
     });
 
@@ -164,7 +197,7 @@ class SessionManager extends EventEmitter {
     return session;
   }
 
-  sendMessage(channelId: string, content: string): void {
+  sendMessage(channelId: string, content: string | ContentBlockParam[]): void {
     const session = this.sessions.get(channelId);
     if (!session) {
       throw new Error(`No session found for channel ${channelId}`);
@@ -204,6 +237,37 @@ class SessionManager extends EventEmitter {
 
   getAllSessions(): ActiveSession[] {
     return [...this.sessions.values()];
+  }
+
+  private _buildSendFile(client: Client, channelId: string, guildId: string) {
+    return async (filePath: string, filename?: string): Promise<string> => {
+      // Validate file exists
+      const stats = await fs.promises.stat(filePath);
+
+      // Check size against guild premium tier
+      const guild = client.guilds.cache.get(guildId);
+      const limit = getUploadLimit(guild?.premiumTier ?? GuildPremiumTier.None);
+
+      if (stats.size > limit) {
+        throw new Error(
+          `File too large (${formatSize(stats.size)}). Server upload limit: ${formatSize(limit)}`,
+        );
+      }
+
+      // Read file and send to channel
+      const buffer = await fs.promises.readFile(filePath);
+      const displayName = filename || nodePath.basename(filePath);
+      const attachment = new AttachmentBuilder(buffer, { name: displayName });
+
+      const channel = client.channels.cache.get(channelId) as TextChannel | undefined;
+      if (!channel?.isTextBased()) {
+        throw new Error('Session channel not found or is not a text channel');
+      }
+
+      await channel.send({ files: [attachment] });
+
+      return `File "${displayName}" (${formatSize(stats.size)}) sent to Discord successfully.`;
+    };
   }
 
   private async _processEvents(session: ActiveSession): Promise<void> {
@@ -261,6 +325,12 @@ class SessionManager extends EventEmitter {
       this.emit('error', session.channelId, err);
     }
   }
+}
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${bytes} B`;
 }
 
 export const sessionManager = new SessionManager();

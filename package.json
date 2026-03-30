@@ -1,13 +1,15 @@
 {
   "name": "agent4discord",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Remote Claude Code sessions through Discord",
   "type": "module",
   "bin": {
     "agent4discord": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "README.ko.md"
   ],
   "scripts": {
     "build": "tsc",
@@ -25,6 +27,14 @@
     "bot"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/raravel/Agent4Discord.git"
+  },
+  "homepage": "https://github.com/raravel/Agent4Discord#readme",
+  "bugs": {
+    "url": "https://github.com/raravel/Agent4Discord/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

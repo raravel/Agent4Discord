@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="Agent4Discord" width="640">
+  <img src="https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/banner.png" alt="Agent4Discord" width="640">
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@ Agent4Discord (A4D) is a self-hosted Discord bot that lets you interact with [Cl
 ## How It Works
 
 <p align="center">
-  <img src="docs/images/architecture.png" alt="Architecture" width="640">
+  <img src="https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/architecture.png" alt="Architecture" width="640">
 </p>
 
 1. You run the bot on your PC with your own Discord bot token
@@ -40,13 +40,13 @@ Agent4Discord (A4D) is a self-hosted Discord bot that lets you interact with [Cl
 - **CLI Interop** — Sessions share the same JSONL storage as the CLI
 
 ### Directory Browser
-![Directory Browser](docs/images/screenshot-browser.png)
+![Directory Browser](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-browser.png)
 
 ### Session with Streaming
-![Session](docs/images/screenshot-session.png)
+![Session](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-session.png)
 
 ### Permission Request
-![Permission](docs/images/screenshot-permission.png)
+![Permission](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-permission.png)
 
 ## Quick Start
 

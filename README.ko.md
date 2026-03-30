@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="Agent4Discord" width="640">
+  <img src="https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/banner.png" alt="Agent4Discord" width="640">
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@ Agent4Discord (A4D)는 [Claude Code](https://docs.anthropic.com/en/docs/claude-c
 ## 동작 방식
 
 <p align="center">
-  <img src="docs/images/architecture.png" alt="아키텍처" width="640">
+  <img src="https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/architecture.png" alt="아키텍처" width="640">
 </p>
 
 1. 본인의 Discord 봇 토큰으로 PC에서 봇을 실행
@@ -40,13 +40,13 @@ Agent4Discord (A4D)는 [Claude Code](https://docs.anthropic.com/en/docs/claude-c
 - **CLI 연동** — CLI와 동일한 JSONL 저장소를 공유하여 세션 호환
 
 ### 디렉토리 브라우저
-![디렉토리 브라우저](docs/images/screenshot-browser.png)
+![디렉토리 브라우저](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-browser.png)
 
 ### 세션 스트리밍
-![세션](docs/images/screenshot-session.png)
+![세션](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-session.png)
 
 ### 권한 요청
-![권한](docs/images/screenshot-permission.png)
+![권한](https://raw.githubusercontent.com/raravel/Agent4Discord/main/docs/images/screenshot-permission.png)
 
 ## 빠른 시작
 

@@ -10,6 +10,7 @@ import { routeInteraction, routeModalSubmit } from './interactions/index.js';
 import { sessionManager } from './sessions/sessionManager.js';
 import { setupEventHandlers, getAndClearTurnThreads } from './sessions/eventHandler.js';
 import { removeSessionFromGuild } from './sessions/sessionStore.js';
+import { clearAlwaysAllowed } from './interactions/permissionHandler.js';
 import { setupUsageTracker } from './sessions/usageTracker.js';
 import { processAttachments } from './utils/attachments.js';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
@@ -156,6 +157,7 @@ export async function startBot(): Promise<void> {
 
     sessionManager.removeSession(channel.id);
     removeSessionFromGuild(session.guildId, channel.id);
+    clearAlwaysAllowed(channel.id);
   });
 
   // Wire up SDK event -> Discord message handlers

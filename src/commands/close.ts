@@ -6,6 +6,7 @@ import {
 import { sessionManager } from '../sessions/sessionManager.js';
 import { removeSessionFromGuild } from '../sessions/sessionStore.js';
 import { loadGuildConfig } from '../guild.js';
+import { clearAlwaysAllowed } from '../interactions/permissionHandler.js';
 
 /**
  * Handle /a4d close — stop the session and delete the channel.
@@ -37,6 +38,7 @@ export async function handleClose(interaction: ChatInputCommandInteraction): Pro
     sessionManager.stopSession(channel.id);
     removeSessionFromGuild(session.guildId, channel.id);
   }
+  clearAlwaysAllowed(channel.id);
 
   await interaction.reply({ content: 'Closing session and deleting channel...' });
 

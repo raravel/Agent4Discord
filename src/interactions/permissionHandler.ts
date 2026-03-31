@@ -21,10 +21,22 @@ interface PendingPermission {
   channelId: string;
   messageId: string;
   userId: string; // session owner
+  toolName: string;
   toolInput: Record<string, unknown>;
 }
 
 const pendingPermissions = new Map<string, PendingPermission>();
+
+// Per-channel set of tool names that the user has "Always Allowed"
+const alwaysAllowedTools = new Map<string, Set<string>>();
+
+export function isToolAlwaysAllowed(channelId: string, toolName: string): boolean {
+  return alwaysAllowedTools.get(channelId)?.has(toolName) ?? false;
+}
+
+export function clearAlwaysAllowed(channelId: string): void {
+  alwaysAllowedTools.delete(channelId);
+}
 
 /**
  * Request tool permission via Discord buttons.
@@ -38,6 +50,11 @@ export async function requestPermission(
 ): Promise<PermissionResult> {
   // Auto-allow safe tools
   if (AUTO_ALLOW_TOOLS.has(toolName)) {
+    return { behavior: 'allow', updatedInput: {} };
+  }
+
+  // Check if user has "Always Allowed" this tool for this session
+  if (isToolAlwaysAllowed(channel.id, toolName)) {
     return { behavior: 'allow', updatedInput: {} };
   }
 
@@ -58,6 +75,10 @@ export async function requestPermission(
       .setCustomId(`a4d:perm:${requestId}:allow`)
       .setLabel('Allow')
       .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`a4d:perm:${requestId}:always`)
+      .setLabel('Always Allow')
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`a4d:perm:${requestId}:deny`)
       .setLabel('Deny')
@@ -90,6 +111,7 @@ export async function requestPermission(
       channelId: channel.id,
       messageId: msg.id,
       userId,
+      toolName,
       toolInput,
     });
   });
@@ -133,6 +155,18 @@ export async function handlePermission(interaction: ButtonInteraction): Promise<
       .setColor(COLORS.IDLE);
     await interaction.update({ embeds: [embed], components: [buildDisabledRow()] });
     pending.resolve({ behavior: 'allow', updatedInput: {} });
+  } else if (action === 'always') {
+    // Add to always-allowed set for this channel/session
+    if (!alwaysAllowedTools.has(pending.channelId)) {
+      alwaysAllowedTools.set(pending.channelId, new Set());
+    }
+    alwaysAllowedTools.get(pending.channelId)!.add(pending.toolName);
+
+    const embed = EmbedBuilder.from(interaction.message.embeds[0])
+      .setTitle(`Permission Granted (Always: ${pending.toolName})`)
+      .setColor(COLORS.IDLE);
+    await interaction.update({ embeds: [embed], components: [buildDisabledRow()] });
+    pending.resolve({ behavior: 'allow', updatedInput: {} });
   } else if (action === 'deny') {
     const embed = EmbedBuilder.from(interaction.message.embeds[0])
       .setTitle('Permission Denied')
@@ -145,6 +179,7 @@ export async function handlePermission(interaction: ButtonInteraction): Promise<
 function buildDisabledRow(): ActionRowBuilder<MessageActionRowComponentBuilder> {
   return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder().setCustomId('a4d:perm:x:allow').setLabel('Allow').setStyle(ButtonStyle.Success).setDisabled(true),
+    new ButtonBuilder().setCustomId('a4d:perm:x:always').setLabel('Always Allow').setStyle(ButtonStyle.Primary).setDisabled(true),
     new ButtonBuilder().setCustomId('a4d:perm:x:deny').setLabel('Deny').setStyle(ButtonStyle.Danger).setDisabled(true),
     new ButtonBuilder().setCustomId('a4d:perm:x:details').setLabel('Details').setStyle(ButtonStyle.Secondary).setDisabled(true),
   );

@@ -77,9 +77,7 @@ export function setupEventHandlers(client: Client): void {
     if (event.type === 'content_block_start') {
       const blockType = event.content_block?.type;
       if (blockType === 'text' || blockType === 'thinking') {
-        const session = sessionManager.getSession(channelId);
-        const userId = blockType === 'text' ? session?.userId : undefined;
-        const handler = new StreamHandler(textChannel, blockType, undefined, userId);
+        const handler = new StreamHandler(textChannel, blockType);
         activeStreams.set(`${channelId}:${blockType}`, handler);
       }
     }
@@ -137,18 +135,12 @@ export function setupEventHandlers(client: Client): void {
         activeStreams.has(`${channelId}:text`);
 
       if (!hadStream) {
-        const session = sessionManager.getSession(channelId);
-        let mentionApplied = false;
         for (const block of contentBlocks) {
           if (block.type === 'text' && block.text) {
             const chunks = chunkMessage(block.text);
-            for (let i = 0; i < chunks.length; i++) {
-              const content = i === 0 && !mentionApplied && session?.userId
-                ? `<@${session.userId}> ${chunks[i]}`
-                : chunks[i];
-              await textChannel.send(content);
+            for (const chunk of chunks) {
+              await textChannel.send(chunk);
             }
-            if (!mentionApplied) mentionApplied = true;
           }
         }
       }
@@ -248,6 +240,11 @@ export function setupEventHandlers(client: Client): void {
       }
     } catch {
       // Reaction cleanup is best-effort
+    }
+
+    // Mention user to notify that the response is complete
+    if (session.userId) {
+      await textChannel.send(`<@${session.userId}> Done.`).catch(() => {});
     }
   });
 

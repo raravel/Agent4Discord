@@ -148,6 +148,11 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
     await statusMsg.edit({ embeds: [updatedEmbed], components: [controlRow] });
 
     await interaction.editReply({ content: 'Session resumed! You can start chatting again.' });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try { await interaction.deleteReply(); } catch { /* already deleted */ }
+    }, 60_000);
   } catch (err) {
     console.error('[resume] Failed to resume session:', err);
     await interaction.editReply({ content: 'Failed to resume session. Check the bot console for details.' });

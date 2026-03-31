@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -6,13 +7,18 @@ import {
   ButtonStyle,
   ChannelType,
   EmbedBuilder,
+  ModalBuilder,
   StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type ButtonInteraction,
   type MessageActionRowComponentBuilder,
+  type ModalActionRowComponentBuilder,
+  type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
   type TextChannel,
 } from 'discord.js';
-import { listSessions, getSessionMessages, type SDKSessionInfo } from '@anthropic-ai/claude-agent-sdk';
+import { listSessions, getSessionMessages, type PermissionMode, type SDKSessionInfo } from '@anthropic-ai/claude-agent-sdk';
 import { isPathSafe, listDirectories } from '../utils/filesystem.js';
 import { chunkMessage } from '../formatters/chunker.js';
 import { loadGuildConfig } from '../guild.js';
@@ -25,6 +31,14 @@ const HOMEDIR = os.homedir();
 const MAX_SELECT_OPTIONS = 25;
 const MAX_LABEL_LENGTH = 95;
 const MAX_VALUE_LENGTH = 100;
+
+/**
+ * Temporary store mapping userId -> current browser path, used to pass state
+ * from the "Create Directory" button press to the subsequent modal submit.
+ * Discord modals don't have access to the parent message embed, and the path
+ * can exceed the 100-char customId limit, so we store it here.
+ */
+const createDirPathStore = new Map<string, string>();
 
 // ---------------------------------------------------------------------------
 // State helpers
@@ -153,6 +167,12 @@ export async function buildBrowserMessage(
     .setLabel('Resume Session')
     .setStyle(ButtonStyle.Primary);
 
+  const createButton = new ButtonBuilder()
+    .setCustomId('a4d:dir:create')
+    .setLabel('Create')
+    .setStyle(ButtonStyle.Secondary)
+    .setEmoji('\uD83D\uDCC1');
+
   const cancelButton = new ButtonBuilder()
     .setCustomId('a4d:dir:cancel')
     .setLabel('Cancel')
@@ -162,6 +182,7 @@ export async function buildBrowserMessage(
     parentButton,
     startButton,
     resumeButton,
+    createButton,
     cancelButton,
   );
 
@@ -264,6 +285,75 @@ export async function handleDirectoryNext(interaction: ButtonInteraction): Promi
   await interaction.update(message);
 }
 
+/**
+ * Handle the "Create" button -- show a modal for creating a new directory.
+ */
+export async function handleCreateDir(interaction: ButtonInteraction): Promise<void> {
+  const state = parseFooterState(interaction);
+
+  // Store current path so the modal submit handler can retrieve it
+  createDirPathStore.set(interaction.user.id, state.path);
+
+  const modal = new ModalBuilder()
+    .setCustomId('a4d:dir:create-modal')
+    .setTitle('Create Directory');
+
+  const nameInput = new TextInputBuilder()
+    .setCustomId('dirname')
+    .setLabel('Directory Name')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('my-project')
+    .setRequired(true)
+    .setMaxLength(255);
+
+  modal.addComponents(
+    new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(nameInput),
+  );
+
+  await interaction.showModal(modal);
+}
+
+/**
+ * Handle the modal submit for creating a new directory.
+ */
+export async function handleCreateDirSubmit(interaction: ModalSubmitInteraction): Promise<void> {
+  const dirname = interaction.fields.getTextInputValue('dirname');
+  const currentPath = createDirPathStore.get(interaction.user.id);
+
+  if (!currentPath) {
+    await interaction.reply({ content: 'Could not determine the current directory. Please try again.', ephemeral: true });
+    return;
+  }
+
+  // Clean up the stored path
+  createDirPathStore.delete(interaction.user.id);
+
+  // Validate directory name: only alphanumeric, dots, hyphens, underscores
+  if (!/^[a-zA-Z0-9._-]+$/.test(dirname)) {
+    await interaction.reply({ content: 'Invalid directory name. Only letters, numbers, dots, hyphens, and underscores are allowed.', ephemeral: true });
+    return;
+  }
+
+  const newPath = path.join(currentPath, dirname);
+
+  try {
+    fs.mkdirSync(newPath, { recursive: true });
+  } catch (err) {
+    console.error('[create-dir] Failed to create directory:', err);
+    await interaction.reply({ content: 'Failed to create directory. Check file system permissions.', ephemeral: true });
+    return;
+  }
+
+  // Refresh the browser to show the new directory
+  const browserMsg = await buildBrowserMessage(currentPath);
+
+  if (interaction.isFromMessage()) {
+    await interaction.update(browserMsg);
+  } else {
+    await interaction.reply({ content: `Created directory **${dirname}**.`, ephemeral: true });
+  }
+}
+
 const MAX_SESSIONS_PER_USER = 3;
 
 /**
@@ -306,7 +396,19 @@ export async function handleSessionStart(interaction: ButtonInteraction): Promis
       { label: 'Haiku 4.5 (fastest)', value: 'haiku' },
     );
 
-  const selectRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(modelSelect);
+  const modelRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(modelSelect);
+
+  const permSelect = new StringSelectMenuBuilder()
+    .setCustomId('a4d:perm-mode:select')
+    .setPlaceholder('Permission mode...')
+    .addOptions(
+      { label: 'Default (ask for everything)', value: 'default', default: true },
+      { label: 'Accept Edits (auto-approve file changes)', value: 'acceptEdits' },
+      { label: 'Bypass Permissions (auto-approve all)', value: 'bypassPermissions', description: '⚠️ Dangerous' },
+      { label: 'Plan Mode (read-only)', value: 'plan' },
+    );
+
+  const permRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(permSelect);
 
   const buttonRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder().setCustomId('a4d:model:confirm').setLabel('Start Session').setStyle(ButtonStyle.Success),
@@ -315,13 +417,13 @@ export async function handleSessionStart(interaction: ButtonInteraction): Promis
 
   const embed = new EmbedBuilder()
     .setTitle('Select Model')
-    .setDescription('Choose the Claude model for this session.')
-    .setFooter({ text: `${state.path} | model:opus` })
+    .setDescription('Choose the Claude model and permission mode for this session.')
+    .setFooter({ text: `${state.path} | model:opus | perm:default` })
     .setColor(0x5865f2);
 
   await interaction.reply({
     embeds: [embed],
-    components: [selectRow, buttonRow],
+    components: [modelRow, permRow, buttonRow],
     ephemeral: true,
   });
 }
@@ -330,15 +432,21 @@ export async function handleSessionStart(interaction: ButtonInteraction): Promis
 // Model footer parser
 // ---------------------------------------------------------------------------
 
-function parseModelFooter(interaction: ButtonInteraction | StringSelectMenuInteraction): { path: string; model: string } {
+function parseModelFooter(interaction: ButtonInteraction | StringSelectMenuInteraction): { path: string; model: string; perm: PermissionMode } {
   const text = interaction.message.embeds[0]?.footer?.text ?? '';
   const parts = text.split(' | ');
   const pathValue = parts[0] || os.homedir();
   let model = 'opus';
+  let perm: PermissionMode = 'default';
+  const validPerms: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk'];
   for (const part of parts) {
     if (part.startsWith('model:')) model = part.slice(6);
+    if (part.startsWith('perm:')) {
+      const val = part.slice(5);
+      if (validPerms.includes(val as PermissionMode)) perm = val as PermissionMode;
+    }
   }
-  return { path: pathValue, model };
+  return { path: pathValue, model, perm };
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +460,7 @@ export async function handleModelSelect(interaction: StringSelectMenuInteraction
   const selected = interaction.values[0];
   if (!selected) return;
 
-  const { path: cwdPath } = parseModelFooter(interaction);
+  const { path: cwdPath, perm } = parseModelFooter(interaction);
 
   const modelLabels: Record<string, string> = {
     opus: 'Opus 4.6 (most capable)',
@@ -369,7 +477,86 @@ export async function handleModelSelect(interaction: StringSelectMenuInteraction
       { label: 'Haiku 4.5 (fastest)', value: 'haiku', default: selected === 'haiku' },
     );
 
-  const selectRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(modelSelect);
+  const modelRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(modelSelect);
+
+  const permSelect = buildPermSelectMenu(perm);
+  const permRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(permSelect);
+
+  const buttonRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder().setCustomId('a4d:model:confirm').setLabel('Start Session').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('a4d:model:cancel').setLabel('Cancel').setStyle(ButtonStyle.Secondary),
+  );
+
+  const permLabels: Record<string, string> = {
+    default: 'Default',
+    acceptEdits: 'Accept Edits',
+    bypassPermissions: 'Bypass Permissions',
+    plan: 'Plan Mode',
+  };
+
+  const embed = new EmbedBuilder()
+    .setTitle('Select Model')
+    .setDescription(`Choose the Claude model and permission mode for this session.\nModel: **${modelLabels[selected] ?? selected}**\nPermissions: **${permLabels[perm] ?? perm}**`)
+    .setFooter({ text: `${cwdPath} | model:${selected} | perm:${perm}` })
+    .setColor(0x5865f2);
+
+  await interaction.update({
+    embeds: [embed],
+    components: [modelRow, permRow, buttonRow],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Permission mode helpers
+// ---------------------------------------------------------------------------
+
+function buildPermSelectMenu(selectedPerm: string): StringSelectMenuBuilder {
+  return new StringSelectMenuBuilder()
+    .setCustomId('a4d:perm-mode:select')
+    .setPlaceholder('Permission mode...')
+    .addOptions(
+      { label: 'Default (ask for everything)', value: 'default', default: selectedPerm === 'default' },
+      { label: 'Accept Edits (auto-approve file changes)', value: 'acceptEdits', default: selectedPerm === 'acceptEdits' },
+      { label: 'Bypass Permissions (auto-approve all)', value: 'bypassPermissions', description: '⚠️ Dangerous', default: selectedPerm === 'bypassPermissions' },
+      { label: 'Plan Mode (read-only)', value: 'plan', default: selectedPerm === 'plan' },
+    );
+}
+
+/**
+ * Handle permission mode select menu -- update the embed footer with the chosen mode.
+ */
+export async function handlePermModeSelect(interaction: StringSelectMenuInteraction): Promise<void> {
+  const selected = interaction.values[0];
+  if (!selected) return;
+
+  const { path: cwdPath, model } = parseModelFooter(interaction);
+
+  const modelLabels: Record<string, string> = {
+    opus: 'Opus 4.6 (most capable)',
+    sonnet: 'Sonnet 4.6 (fast)',
+    haiku: 'Haiku 4.5 (fastest)',
+  };
+
+  const permLabels: Record<string, string> = {
+    default: 'Default',
+    acceptEdits: 'Accept Edits',
+    bypassPermissions: 'Bypass Permissions',
+    plan: 'Plan Mode',
+  };
+
+  const modelSelect = new StringSelectMenuBuilder()
+    .setCustomId('a4d:model:select')
+    .setPlaceholder('Select a model...')
+    .addOptions(
+      { label: 'Opus 4.6 (most capable)', value: 'opus', default: model === 'opus' },
+      { label: 'Sonnet 4.6 (fast)', value: 'sonnet', default: model === 'sonnet' },
+      { label: 'Haiku 4.5 (fastest)', value: 'haiku', default: model === 'haiku' },
+    );
+
+  const modelRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(modelSelect);
+
+  const permSelect = buildPermSelectMenu(selected);
+  const permRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(permSelect);
 
   const buttonRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
     new ButtonBuilder().setCustomId('a4d:model:confirm').setLabel('Start Session').setStyle(ButtonStyle.Success),
@@ -378,13 +565,13 @@ export async function handleModelSelect(interaction: StringSelectMenuInteraction
 
   const embed = new EmbedBuilder()
     .setTitle('Select Model')
-    .setDescription(`Choose the Claude model for this session.\nSelected: **${modelLabels[selected] ?? selected}**`)
-    .setFooter({ text: `${cwdPath} | model:${selected}` })
+    .setDescription(`Choose the Claude model and permission mode for this session.\nModel: **${modelLabels[model] ?? model}**\nPermissions: **${permLabels[selected] ?? selected}**`)
+    .setFooter({ text: `${cwdPath} | model:${model} | perm:${selected}` })
     .setColor(0x5865f2);
 
   await interaction.update({
     embeds: [embed],
-    components: [selectRow, buttonRow],
+    components: [modelRow, permRow, buttonRow],
   });
 }
 
@@ -392,7 +579,7 @@ export async function handleModelSelect(interaction: StringSelectMenuInteraction
  * Handle model confirm button -- create session channel and start a Claude Code session.
  */
 export async function handleModelConfirm(interaction: ButtonInteraction): Promise<void> {
-  const { path: cwdPath, model } = parseModelFooter(interaction);
+  const { path: cwdPath, model, perm: permissionMode } = parseModelFooter(interaction);
   const guild = interaction.guild;
 
   if (!guild) {
@@ -435,7 +622,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
       parent: guildConfig.sessionsCategoryId,
     });
 
-    // Start Claude Code session with selected model
+    // Start Claude Code session with selected model and permission mode
     const session = sessionManager.createSession(
       guild.id,
       interaction.user.id,
@@ -449,6 +636,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
         return result;
       },
       interaction.client,
+      permissionMode,
     );
 
     // Persist to guild config
@@ -463,6 +651,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
       sessionId: session.sessionId || 'pending',
       costUsd: 0,
       startedAt: new Date().toISOString(),
+      permissionMode,
     });
 
     const controlRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
@@ -477,6 +666,11 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
     await interaction.editReply({
       content: `Session started in <#${channel.id}>`,
     });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try { await interaction.deleteReply(); } catch { /* already deleted */ }
+    }, 60_000);
   } catch (err) {
     console.error('[session-start] Failed to create session:', err);
     await interaction.editReply({
@@ -682,7 +876,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
       parent: guildConfig.sessionsCategoryId,
     });
 
-    // Resume Claude Code session
+    // Resume Claude Code session (default permission mode for resumes)
     const session = sessionManager.resumeSession(
       guild.id,
       interaction.user.id,
@@ -697,6 +891,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
         return result;
       },
       interaction.client,
+      'default', // permissionMode
     );
 
     // Persist to guild config
@@ -711,6 +906,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
       sessionId: session.sessionId || 'pending',
       costUsd: 0,
       startedAt: new Date().toISOString(),
+      permissionMode: 'default',
     });
 
     const controlRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
@@ -729,10 +925,15 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
     await interaction.editReply(browserMsg);
 
     // Send followup linking to the new channel
-    await interaction.followUp({
+    const followUpMsg = await interaction.followUp({
       content: `Session resumed in <#${channel.id}>`,
       ephemeral: true,
     });
+
+    // Auto-delete after 60 seconds
+    setTimeout(async () => {
+      try { await followUpMsg.delete(); } catch { /* already deleted */ }
+    }, 60_000);
   } catch (err) {
     console.error('[resume-start] Failed to resume session:', err);
     await interaction.followUp({

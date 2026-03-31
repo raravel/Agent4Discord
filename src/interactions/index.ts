@@ -1,5 +1,7 @@
-import type { ButtonInteraction, MessageComponentInteraction, StringSelectMenuInteraction } from 'discord.js';
+import type { ButtonInteraction, MessageComponentInteraction, ModalSubmitInteraction, StringSelectMenuInteraction } from 'discord.js';
 import {
+  handleCreateDir,
+  handleCreateDirSubmit,
   handleDirectoryBrowse,
   handleDirectoryCancel,
   handleDirectoryNext,
@@ -8,6 +10,7 @@ import {
   handleModelCancel,
   handleModelConfirm,
   handleModelSelect,
+  handlePermModeSelect,
   handleResumeBack,
   handleResumeBrowse,
   handleResumeSession,
@@ -48,6 +51,9 @@ export async function routeInteraction(
       case 'a4d:dir:next':
         await handleDirectoryNext(interaction as ButtonInteraction);
         return;
+      case 'a4d:dir:create':
+        await handleCreateDir(interaction as ButtonInteraction);
+        return;
       case 'a4d:dir:pageinfo':
         await interaction.deferUpdate();
         return;
@@ -72,6 +78,11 @@ export async function routeInteraction(
         await interaction.reply({ content: 'Unknown model selection action.', ephemeral: true });
         return;
     }
+  }
+
+  if (customId === 'a4d:perm-mode:select') {
+    await handlePermModeSelect(interaction as StringSelectMenuInteraction);
+    return;
   }
 
   if (customId.startsWith('a4d:session:')) {
@@ -112,4 +123,21 @@ export async function routeInteraction(
 
   console.warn(`[interactions] Unknown customId: ${customId}`);
   await interaction.reply({ content: 'Unknown interaction.', ephemeral: true });
+}
+
+/**
+ * Route modal submit interactions based on customId prefix.
+ */
+export async function routeModalSubmit(
+  interaction: ModalSubmitInteraction,
+): Promise<void> {
+  const customId = interaction.customId;
+
+  if (customId.startsWith('a4d:dir:create-modal')) {
+    await handleCreateDirSubmit(interaction);
+    return;
+  }
+
+  console.warn(`[interactions] Unknown modal customId: ${customId}`);
+  await interaction.reply({ content: 'Unknown modal submission.', ephemeral: true });
 }

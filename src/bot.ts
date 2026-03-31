@@ -6,7 +6,7 @@ import {
 } from 'discord.js';
 import { loadConfig } from './config.js';
 import { commands, registerCommands } from './commands/index.js';
-import { routeInteraction } from './interactions/index.js';
+import { routeInteraction, routeModalSubmit } from './interactions/index.js';
 import { sessionManager } from './sessions/sessionManager.js';
 import { setupEventHandlers, getAndClearTurnThreads } from './sessions/eventHandler.js';
 import { removeSessionFromGuild } from './sessions/sessionStore.js';
@@ -76,6 +76,16 @@ export async function startBot(): Promise<void> {
         await routeInteraction(interaction);
       } catch (err) {
         console.error(`Error handling interaction "${interaction.customId}":`, err);
+      }
+      return;
+    }
+
+    // Modal submissions
+    if (interaction.isModalSubmit()) {
+      try {
+        await routeModalSubmit(interaction);
+      } catch (err) {
+        console.error(`Error handling modal "${interaction.customId}":`, err);
       }
       return;
     }

@@ -5,6 +5,7 @@ import { EventEmitter } from 'node:events';
 import {
   query,
   type CanUseTool,
+  type PermissionMode,
   type Query,
   type SDKUserMessage,
   type SDKAssistantMessage,
@@ -43,6 +44,7 @@ class SessionManager extends EventEmitter {
     model?: string,
     canUseTool?: CanUseTool,
     client?: Client,
+    permissionMode?: PermissionMode,
   ): ActiveSession {
     const controller = new AbortController();
 
@@ -75,7 +77,7 @@ class SessionManager extends EventEmitter {
       options: {
         cwd,
         model: model || 'opus',
-        permissionMode: 'default',
+        permissionMode: permissionMode ?? 'default',
         includePartialMessages: true,
         abortController: controller,
         canUseTool,
@@ -126,6 +128,7 @@ class SessionManager extends EventEmitter {
     model?: string,
     canUseTool?: CanUseTool,
     client?: Client,
+    permissionMode?: PermissionMode,
   ): ActiveSession {
     const controller = new AbortController();
 
@@ -158,7 +161,7 @@ class SessionManager extends EventEmitter {
       options: {
         cwd,
         model: model || 'opus',
-        permissionMode: 'default',
+        permissionMode: permissionMode ?? 'default',
         includePartialMessages: true,
         abortController: controller,
         resume: sessionId,

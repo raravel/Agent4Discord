@@ -24,17 +24,28 @@ export function buildStatusEmbed(opts: {
   sessionId: string;
   costUsd: number;
   startedAt: string;
+  permissionMode?: string;
 }): EmbedBuilder {
+  const permLabels: Record<string, string> = {
+    default: 'Default',
+    acceptEdits: 'Accept Edits',
+    bypassPermissions: 'Bypass Permissions',
+    plan: 'Plan Mode',
+  };
+
+  const fields = [
+    { name: 'Directory', value: opts.cwd, inline: true },
+    { name: 'Model', value: opts.model, inline: true },
+    { name: 'Permissions', value: permLabels[opts.permissionMode ?? 'default'] ?? opts.permissionMode ?? 'Default', inline: true },
+    { name: 'Session ID', value: opts.sessionId || 'pending', inline: false },
+    { name: 'Cost', value: `$${opts.costUsd.toFixed(4)}`, inline: true },
+    { name: 'Started', value: opts.startedAt, inline: true },
+  ];
+
   return new EmbedBuilder()
     .setTitle(`${opts.status}`)
     .setColor(opts.color)
-    .addFields(
-      { name: 'Directory', value: opts.cwd, inline: true },
-      { name: 'Model', value: opts.model, inline: true },
-      { name: 'Session ID', value: opts.sessionId || 'pending', inline: false },
-      { name: 'Cost', value: `$${opts.costUsd.toFixed(4)}`, inline: true },
-      { name: 'Started', value: opts.startedAt, inline: true },
-    );
+    .addFields(fields);
 }
 
 /**

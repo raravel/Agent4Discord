@@ -29,11 +29,13 @@ Agent4Discord (A4D)는 [Claude Code](https://docs.anthropic.com/en/docs/claude-c
 
 ## 주요 기능
 
-- **디렉토리 브라우저** — 셀렉트 메뉴와 버튼으로 파일시스템 탐색
-- **모델 선택** — 세션 시작 시 opus/sonnet/haiku 선택 (기본값: opus)
+- **디렉토리 브라우저** — 셀렉트 메뉴와 버튼으로 파일시스템 탐색, 디렉토리 생성 지원
+- **모델 & 권한 모드** — 세션 시작 시 opus/sonnet/haiku와 권한 수준 (기본, 편집 자동승인, 전체 자동) 선택
 - **실시간 스트리밍** — 텍스트 출력, 생각, 도구 진행률을 라이브 업데이트 임베드로 표시
 - **도구 호출 스레드** — 각 도구 실행이 포맷된 입출력과 함께 개별 스레드로 생성
-- **권한 제어** — 위험한 작업에 Allow/Deny 버튼 (안전한 도구는 자동 허용)
+- **권한 제어** — 위험한 작업에 Allow/Always Allow/Deny 버튼 (안전한 도구는 자동 허용)
+- **파일 첨부** — Discord 첨부파일로 Claude에 파일 전송, Claude도 파일 전송 가능
+- **완료 알림** — Claude 응답 완료 시 @mention으로 알림
 - **세션 재개** — CLI에서 만든 세션이나 중단된 세션을 `/a4d resume`으로 재개
 - **사용량 트래커** — `#a4d-usage` 채널에서 세션 비용, 토큰, 속도 제한 표시
 - **플러그인 지원** — 설치된 Claude Code 플러그인 (스킬, 훅) 자동 로드
@@ -87,6 +89,7 @@ npx agent4discord@latest
 | `/a4d init` | 서버에 A4D 채널 구조 생성 |
 | `/a4d resume` | 현재 채널에서 중단된 세션 재개 |
 | `/a4d model <opus\|sonnet\|haiku>` | 세션 중 모델 변경 |
+| `/a4d close` | 세션 종료 및 채널 삭제 |
 
 ## 채널 구조
 

@@ -29,11 +29,13 @@ Agent4Discord (A4D) is a self-hosted Discord bot that lets you interact with [Cl
 
 ## Features
 
-- **Directory Browser** — Navigate your filesystem with select menus and buttons
-- **Model Selection** — Choose opus/sonnet/haiku when starting a session (default: opus)
+- **Directory Browser** — Navigate your filesystem with select menus, buttons, and create directories
+- **Model & Permission Mode** — Choose opus/sonnet/haiku and permission level (default, auto-accept edits, full auto) when starting a session
 - **Real-time Streaming** — Live-updating embeds for text output, thinking, and tool progress
 - **Tool Call Threads** — Each tool execution gets its own thread with formatted input/output
-- **Permission Control** — Allow/Deny buttons for dangerous operations (auto-allow for safe tools)
+- **Permission Control** — Allow/Always Allow/Deny buttons for dangerous operations (auto-allow for safe tools)
+- **File Attachments** — Send files to Claude via Discord attachments, Claude can send files back
+- **Completion Notification** — @mentions you when Claude finishes responding
 - **Session Resume** — Resume CLI-created sessions or stopped sessions with `/a4d resume`
 - **Usage Tracker** — `#a4d-usage` channel shows session costs, tokens, and rate limits
 - **Plugin Support** — Auto-loads your installed Claude Code plugins (skills, hooks)
@@ -87,6 +89,7 @@ npx agent4discord@latest
 | `/a4d init` | Set up A4D channels in your server |
 | `/a4d resume` | Resume a stopped session in the current channel |
 | `/a4d model <opus\|sonnet\|haiku>` | Change model mid-session |
+| `/a4d close` | Stop the session and delete the channel |
 
 ## Channel Structure
 
@@ -142,12 +145,12 @@ src/
 │   ├── index.ts              # Slash command registry
 │   ├── init.ts               # /a4d init
 │   ├── resume.ts             # /a4d resume
-│   └── model.ts              # /a4d model
+│   ├── model.ts              # /a4d model
+│   └── close.ts              # /a4d close
 ├── interactions/
 │   ├── index.ts              # Interaction router
 │   ├── directoryBrowser.ts   # Directory browser UI
-│   ├── sessionControls.ts    # Stop/Archive buttons
-│   └── permissionHandler.ts  # Allow/Deny/Details buttons
+│   └── permissionHandler.ts  # Allow/Always Allow/Deny buttons
 ├── sessions/
 │   ├── sessionManager.ts     # SDK query() lifecycle
 │   ├── sessionStore.ts       # Session persistence
@@ -155,12 +158,15 @@ src/
 │   ├── streamHandler.ts      # Streaming text/thinking embeds
 │   ├── toolProgress.ts       # Tool execution progress
 │   └── usageTracker.ts       # Rate limit & cost tracking
+├── tools/
+│   └── discordTools.ts       # MCP tools for Discord (file attachments)
 ├── formatters/
 │   ├── embedBuilder.ts       # Discord embeds
 │   ├── chunker.ts            # Message chunking
 │   └── toolFormatter.ts      # Tool-specific formatting
 └── utils/
     ├── filesystem.ts         # Directory listing
+    ├── attachments.ts        # Discord attachment processing
     ├── plugins.ts            # Plugin auto-loader
     └── logger.ts             # Logging
 ```

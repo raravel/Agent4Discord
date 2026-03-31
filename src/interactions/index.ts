@@ -18,7 +18,6 @@ import {
   handleSessionStart,
 } from './directoryBrowser.js';
 import { handlePermission } from './permissionHandler.js';
-import { handleSessionStop, handleSessionArchive } from './sessionControls.js';
 
 /**
  * Route component interactions (buttons, select menus) based on customId prefix.
@@ -85,19 +84,7 @@ export async function routeInteraction(
     return;
   }
 
-  if (customId.startsWith('a4d:session:')) {
-    switch (customId) {
-      case 'a4d:session:stop':
-        await handleSessionStop(interaction as ButtonInteraction);
-        return;
-      case 'a4d:session:archive':
-        await handleSessionArchive(interaction as ButtonInteraction);
-        return;
-      default:
-        await interaction.reply({ content: 'Unknown session control action.', ephemeral: true });
-        return;
-    }
-  }
+  // Session control buttons removed — use /a4d close instead
 
   if (customId.startsWith('a4d:perm:')) {
     await handlePermission(interaction as ButtonInteraction);

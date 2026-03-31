@@ -4,10 +4,6 @@ import {
   MessageFlags,
   type ChatInputCommandInteraction,
   type TextChannel,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  type MessageActionRowComponentBuilder,
 } from 'discord.js';
 import { listSessions } from '@anthropic-ai/claude-agent-sdk';
 import { sessionManager } from '../sessions/sessionManager.js';
@@ -130,11 +126,6 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
     saveSessionToGuild(guild.id, channel.id, sessionId, cwd, interaction.user.id);
 
     // Update the status embed to active
-    const controlRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('a4d:session:stop').setLabel('Stop').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('a4d:session:archive').setLabel('Archive').setStyle(ButtonStyle.Secondary),
-    );
-
     const updatedEmbed = buildStatusEmbed({
       status: 'Session Active',
       color: COLORS.IDLE,
@@ -145,7 +136,7 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
       startedAt: new Date().toISOString(),
     });
 
-    await statusMsg.edit({ embeds: [updatedEmbed], components: [controlRow] });
+    await statusMsg.edit({ embeds: [updatedEmbed] });
 
     await interaction.editReply({ content: 'Session resumed! You can start chatting again.' });
 

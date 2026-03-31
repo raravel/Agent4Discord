@@ -654,17 +654,12 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
       permissionMode,
     });
 
-    const controlRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('a4d:session:stop').setLabel('Stop').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('a4d:session:archive').setLabel('Archive').setStyle(ButtonStyle.Secondary),
-    );
-
-    const statusMsg = await channel.send({ embeds: [statusEmbed], components: [controlRow] });
+    const statusMsg = await channel.send({ embeds: [statusEmbed] });
     await statusMsg.pin().catch((err) => console.warn('[session] Failed to pin status embed:', err.message));
 
     // Update the ephemeral message with a link to the new channel
     await interaction.editReply({
-      content: `Session started in <#${channel.id}>`,
+      content: `Session started in <#${channel.id}>. Use \`/a4d close\` to end and delete the channel.`,
     });
 
     // Auto-delete after 60 seconds
@@ -909,12 +904,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
       permissionMode: 'default',
     });
 
-    const controlRow = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      new ButtonBuilder().setCustomId('a4d:session:stop').setLabel('Stop').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId('a4d:session:archive').setLabel('Archive').setStyle(ButtonStyle.Secondary),
-    );
-
-    const statusMsg = await channel.send({ embeds: [statusEmbed], components: [controlRow] });
+    const statusMsg = await channel.send({ embeds: [statusEmbed] });
     await statusMsg.pin().catch((err) => console.warn('[session] Failed to pin status embed:', err.message));
 
     // Post previous conversation history

@@ -7,6 +7,7 @@ import { REST, Routes } from 'discord.js';
 import { handleInit } from './init.js';
 import { handleResume } from './resume.js';
 import { handleModel } from './model.js';
+import { handleClose } from './close.js';
 
 /** Handler function type for slash commands. */
 export type CommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -35,6 +36,9 @@ const a4dCommand = new SlashCommandBuilder()
             { name: 'Haiku 4.5 (fastest)', value: 'haiku' },
           )
       )
+  )
+  .addSubcommand((sub) =>
+    sub.setName('close').setDescription('Stop the session and delete this channel')
   );
 
 /** Map of command names to their handler functions. */
@@ -50,6 +54,8 @@ commands.set('a4d', async (interaction: ChatInputCommandInteraction) => {
     await handleResume(interaction);
   } else if (subcommand === 'model') {
     await handleModel(interaction);
+  } else if (subcommand === 'close') {
+    await handleClose(interaction);
   }
 });
 

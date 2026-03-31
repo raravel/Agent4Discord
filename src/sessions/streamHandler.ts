@@ -11,11 +11,13 @@ export class StreamHandler {
   private debounceMs: number;
   private type: 'text' | 'thinking';
   private finalized = false;
+  private userId: string | null = null;
 
-  constructor(channel: TextChannel, type: 'text' | 'thinking', debounceMs?: number) {
+  constructor(channel: TextChannel, type: 'text' | 'thinking', debounceMs?: number, userId?: string) {
     this.channel = channel;
     this.type = type;
     this.debounceMs = debounceMs ?? (type === 'text' ? 1000 : 2000);
+    this.userId = userId ?? null;
   }
 
   push(text: string): void {
@@ -94,8 +96,9 @@ export class StreamHandler {
       if (this.buffer.length > 0) {
         const { chunkMessage } = await import('../formatters/chunker.js');
         const chunks = chunkMessage(this.buffer);
-        for (const chunk of chunks) {
-          await this.channel.send(chunk);
+        for (let i = 0; i < chunks.length; i++) {
+          const content = i === 0 && this.userId ? `<@${this.userId}> ${chunks[i]}` : chunks[i];
+          await this.channel.send(content);
         }
       }
     } else {

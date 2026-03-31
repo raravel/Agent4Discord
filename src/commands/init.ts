@@ -1,6 +1,7 @@
 import os from 'node:os';
 import {
   ChannelType,
+  GuildDefaultMessageNotifications,
   MessageFlags,
   PermissionsBitField,
   type ChatInputCommandInteraction,
@@ -22,9 +23,9 @@ export async function handleInit(interaction: ChatInputCommandInteraction): Prom
 
   // Check bot permissions
   const botMember = guild.members.me;
-  if (!botMember || !botMember.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
+  if (!botMember || !botMember.permissions.has([PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageGuild])) {
     await interaction.reply({
-      content: 'I need the "Manage Channels" permission to set up A4D. Please check my role permissions.',
+      content: 'I need the "Manage Channels" and "Manage Server" permissions to set up A4D. Please check my role permissions.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -150,6 +151,9 @@ async function createGuildStructure(
       type: ChannelType.GuildCategory,
     });
   }
+
+  // Set default notifications to @mentions only
+  await guild.setDefaultMessageNotifications(GuildDefaultMessageNotifications.OnlyMentions);
 
   // Send directory browser in #a4d-session
   const sessionChannel = guild.channels.cache.get(sessionChannelId);

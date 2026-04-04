@@ -7,6 +7,27 @@ import { StreamHandler } from './streamHandler.js';
 import { ToolProgressHandler } from './toolProgress.js';
 import { formatThreadName, formatToolInput, formatToolResult, sendToThread } from '../formatters/toolFormatter.js';
 
+// Track typing indicator intervals per channel
+const typingIntervals = new Map<string, ReturnType<typeof setInterval>>();
+
+export function startTyping(channel: TextChannel): void {
+  const id = channel.id;
+  if (typingIntervals.has(id)) return;
+  channel.sendTyping().catch(() => {});
+  const interval = setInterval(() => {
+    channel.sendTyping().catch(() => {});
+  }, 9000);
+  typingIntervals.set(id, interval);
+}
+
+export function stopTyping(channelId: string): void {
+  const interval = typingIntervals.get(channelId);
+  if (interval) {
+    clearInterval(interval);
+    typingIntervals.delete(channelId);
+  }
+}
+
 // Track active stream handlers per channel (keyed by "channelId:text" or "channelId:thinking")
 const activeStreams = new Map<string, StreamHandler>();
 
@@ -275,6 +296,8 @@ export function setupEventHandlers(client: Client): void {
 
   // --- Result events ---
   sessionManager.on('result', async (channelId: string, _msg: SDKResultMessage) => {
+    stopTyping(channelId);
+
     // Clean up any lingering stream handlers
     await finalizeStreamsForChannel(channelId);
 
@@ -338,6 +361,8 @@ export function setupEventHandlers(client: Client): void {
   });
 
   sessionManager.on('error', async (channelId: string, _err: unknown) => {
+    stopTyping(channelId);
+
     // Clean up any active handlers on error
     await finalizeStreamsForChannel(channelId);
     const toolHandler = activeToolProgress.get(channelId);

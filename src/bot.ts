@@ -8,7 +8,7 @@ import { loadConfig } from './config.js';
 import { commands, registerCommands } from './commands/index.js';
 import { routeInteraction, routeModalSubmit } from './interactions/index.js';
 import { sessionManager } from './sessions/sessionManager.js';
-import { setupEventHandlers, getAndClearTurnThreads } from './sessions/eventHandler.js';
+import { setupEventHandlers, getAndClearTurnThreads, startTyping } from './sessions/eventHandler.js';
 import { removeSessionFromGuild } from './sessions/sessionStore.js';
 import { clearAlwaysAllowed } from './interactions/permissionHandler.js';
 import { setupUsageTracker } from './sessions/usageTracker.js';
@@ -108,8 +108,9 @@ export async function startBot(): Promise<void> {
       }
     }
 
-    // Add hourglass reaction to indicate processing
+    // Add hourglass reaction and start typing indicator
     await message.react('\u23f3').catch(() => {});
+    startTyping(message.channel as import('discord.js').TextChannel);
 
     try {
       // Process attachments if present

@@ -294,6 +294,10 @@ class SessionManager extends EventEmitter {
             this.emit('assistant', session.channelId, msg as SDKAssistantMessage);
             break;
           }
+          case 'user': {
+            this.emit('user', session.channelId, msg as SDKUserMessage);
+            break;
+          }
           case 'result': {
             const resultMsg = msg as SDKResultMessage;
             console.log(`[sdk:result] subtype=${resultMsg.subtype}, cost=$${resultMsg.total_cost_usd}`);

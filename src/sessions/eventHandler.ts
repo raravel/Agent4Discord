@@ -1,11 +1,11 @@
-import type { Client, TextChannel } from 'discord.js';
-import type { SDKAssistantMessage, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { Client, TextChannel, ThreadChannel } from 'discord.js';
+import type { SDKAssistantMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { sessionManager } from './sessionManager.js';
 import { chunkMessage } from '../formatters/chunker.js';
 import { buildStatusEmbed, COLORS } from '../formatters/embedBuilder.js';
 import { StreamHandler } from './streamHandler.js';
 import { ToolProgressHandler } from './toolProgress.js';
-import { formatThreadName, formatToolInput, sendToThread } from '../formatters/toolFormatter.js';
+import { formatThreadName, formatToolInput, formatToolResult, sendToThread } from '../formatters/toolFormatter.js';
 
 // Track active stream handlers per channel (keyed by "channelId:text" or "channelId:thinking")
 const activeStreams = new Map<string, StreamHandler>();
@@ -19,6 +19,66 @@ const recentlyFinalized = new Set<string>();
 
 // Track tool-call threads per channel for the current turn
 const turnThreads = new Map<string, string[]>();
+
+// Map tool_use_id → { thread, toolName } so we can send results back
+const toolUseThreads = new Map<string, { thread: ThreadChannel; toolName: string }>();
+
+// Pending tool results that arrived before their thread was created (async race)
+interface PendingResult { block: any; resolve: () => void }
+const pendingResults = new Map<string, PendingResult[]>();
+
+/** Register a thread and flush any pending results that were waiting for it. */
+async function registerToolThread(
+  toolUseId: string,
+  thread: ThreadChannel,
+  toolName: string,
+): Promise<void> {
+  toolUseThreads.set(toolUseId, { thread, toolName });
+
+  const pending = pendingResults.get(toolUseId);
+  if (pending) {
+    pendingResults.delete(toolUseId);
+    for (const p of pending) {
+      await sendToolResult(toolUseId, p.block);
+      p.resolve();
+    }
+  }
+}
+
+/** Send a tool result block to its matching thread. */
+async function sendToolResult(toolUseId: string, block: any): Promise<void> {
+  const entry = toolUseThreads.get(toolUseId);
+  if (!entry) return;
+
+  const { thread, toolName } = entry;
+
+  let resultText = '';
+  if (typeof block.content === 'string') {
+    resultText = block.content;
+  } else if (Array.isArray(block.content)) {
+    resultText = block.content
+      .filter((b: any) => b.type === 'text' && b.text)
+      .map((b: any) => b.text)
+      .join('\n');
+  }
+
+  if (!resultText) return;
+
+  const prefix = block.is_error ? '**Error:**\n' : '**Result:**\n';
+  const formatted = prefix + formatToolResult(toolName, resultText);
+
+  let attachName: string | undefined;
+  if (toolName === 'Bash') {
+    attachName = 'output.txt';
+  } else if (toolName === 'Read' || toolName === 'Glob' || toolName === 'Grep') {
+    attachName = 'result.txt';
+  } else if (toolName === 'Agent') {
+    attachName = 'agent-output.txt';
+  }
+
+  await sendToThread(thread, formatted, attachName);
+  toolUseThreads.delete(toolUseId);
+}
 
 function trackThread(channelId: string, threadId: string): void {
   const threads = turnThreads.get(channelId) || [];
@@ -178,8 +238,37 @@ export function setupEventHandlers(client: Client): void {
 
           await sendToThread(thread, inputText, attachName);
 
+          // Track tool_use_id → thread and flush any pending results
+          const toolUseId = block.id || (block as any).tool_use_id;
+          if (toolUseId) {
+            await registerToolThread(toolUseId, thread, toolName);
+          }
+
           trackThread(channelId, thread.id);
         }
+      }
+    }
+  });
+
+  // --- User messages (tool results) ---
+  sessionManager.on('user', async (_channelId: string, msg: SDKUserMessage) => {
+    const content = msg.message?.content;
+    if (!Array.isArray(content)) return;
+
+    for (const block of content) {
+      if ((block as any).type !== 'tool_result') continue;
+
+      const toolUseId = (block as any).tool_use_id;
+      if (!toolUseId) continue;
+
+      if (toolUseThreads.has(toolUseId)) {
+        // Thread already exists — send immediately
+        await sendToolResult(toolUseId, block);
+      } else {
+        // Thread not created yet (async race) — queue for later
+        const pending = pendingResults.get(toolUseId) || [];
+        pending.push({ block, resolve: () => {} });
+        pendingResults.set(toolUseId, pending);
       }
     }
   });

@@ -287,6 +287,9 @@ class SessionManager extends EventEmitter {
             if (sysMsg.subtype === 'init' && sysMsg.session_id) {
               session.sessionId = sysMsg.session_id;
             }
+            if ((sysMsg as any).subtype === 'local_command_output') {
+              this.emit('local_command_output', session.channelId, (sysMsg as any).content);
+            }
             session.state = 'idle';
             break;
           }

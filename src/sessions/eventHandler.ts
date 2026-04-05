@@ -294,6 +294,22 @@ export function setupEventHandlers(client: Client): void {
     }
   });
 
+  // --- Local command output (slash command results) ---
+  sessionManager.on('local_command_output', async (channelId: string, content: string) => {
+    const channel = client.channels.cache.get(channelId);
+    if (!channel?.isTextBased()) return;
+    const textChannel = channel as TextChannel;
+
+    if (content.length <= 2000) {
+      await textChannel.send(content);
+    } else {
+      const { AttachmentBuilder } = await import('discord.js');
+      const preview = content.slice(0, 1500) + `\n\n*... truncated (${content.length.toLocaleString()} chars — full output attached)*`;
+      const attachment = new AttachmentBuilder(Buffer.from(content, 'utf-8'), { name: 'command-output.txt' });
+      await textChannel.send({ content: preview, files: [attachment] });
+    }
+  });
+
   // --- Result events ---
   sessionManager.on('result', async (channelId: string, _msg: SDKResultMessage) => {
     stopTyping(channelId);

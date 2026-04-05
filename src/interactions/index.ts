@@ -18,6 +18,7 @@ import {
   handleSessionStart,
 } from './directoryBrowser.js';
 import { handlePermission } from './permissionHandler.js';
+import { handleUsageRefresh } from '../sessions/usageTracker.js';
 
 /**
  * Route component interactions (buttons, select menus) based on customId prefix.
@@ -85,6 +86,11 @@ export async function routeInteraction(
   }
 
   // Session control buttons removed — use /a4d close instead
+
+  if (customId === 'a4d:usage:refresh') {
+    await handleUsageRefresh(interaction as ButtonInteraction);
+    return;
+  }
 
   if (customId.startsWith('a4d:perm:')) {
     await handlePermission(interaction as ButtonInteraction);

@@ -1,7 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { EmbedBuilder, type Client, type TextChannel } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  type ButtonInteraction,
+  type Client,
+  type TextChannel,
+} from 'discord.js';
 import { COLORS } from '../formatters/embedBuilder.js';
 import { loadGuildConfig } from '../guild.js';
 
@@ -295,6 +303,42 @@ export function buildUsageEmbed(): EmbedBuilder {
 }
 
 // ---------------------------------------------------------------------------
+// Button row
+// ---------------------------------------------------------------------------
+
+export function buildUsageRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('a4d:usage:refresh')
+      .setLabel('Refresh')
+      .setEmoji('\ud83d\udd04')
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+export async function handleUsageRefresh(interaction: ButtonInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const result = await fetchUsage();
+  if (!result) {
+    const reply = await interaction.editReply({ content: 'Failed to fetch usage data.' });
+    setTimeout(() => reply.delete().catch(() => {}), 10_000);
+    return;
+  }
+
+  // Update the embed on the original message
+  try {
+    await interaction.message.edit({
+      embeds: [buildUsageEmbed()],
+      components: [buildUsageRow()],
+    });
+  } catch { /* best-effort */ }
+
+  const reply = await interaction.editReply({ content: '\u2705 Usage refreshed.' });
+  setTimeout(() => reply.delete().catch(() => {}), 10_000);
+}
+
+// ---------------------------------------------------------------------------
 // Embed update
 // ---------------------------------------------------------------------------
 
@@ -312,7 +356,7 @@ async function updateAllGuilds(): Promise<void> {
       const textChannel = channel as TextChannel;
       const msg = await textChannel.messages.fetch(config.usageMessageId).catch(() => null);
       if (msg) {
-        await msg.edit({ embeds: [buildUsageEmbed()] });
+        await msg.edit({ embeds: [buildUsageEmbed()], components: [buildUsageRow()] });
       }
     } catch (err) {
       console.error(`[usage] Failed to update embed for guild ${guild.id}:`, err);

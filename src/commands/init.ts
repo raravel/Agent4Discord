@@ -135,9 +135,9 @@ async function createGuildStructure(
     });
     usageChannelId = ch.id;
 
-    // Send initial usage embed
-    const { buildUsageEmbed } = await import('../sessions/usageTracker.js');
-    const usageMsg = await ch.send({ embeds: [buildUsageEmbed()] });
+    // Send initial usage embed with refresh button
+    const { buildUsageEmbed, buildUsageRow } = await import('../sessions/usageTracker.js');
+    const usageMsg = await ch.send({ embeds: [buildUsageEmbed()], components: [buildUsageRow()] });
     usageMessageId = usageMsg.id;
   }
 

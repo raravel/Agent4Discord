@@ -14,8 +14,10 @@ import { clearAlwaysAllowed } from './interactions/permissionHandler.js';
 import { setupUsageTracker } from './sessions/usageTracker.js';
 import { processAttachments } from './utils/attachments.js';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
+import { checkForUpdates } from './utils/updateCheck.js';
 
 export async function startBot(): Promise<void> {
+  void checkForUpdates();
   const config = loadConfig();
 
   const client = new Client({

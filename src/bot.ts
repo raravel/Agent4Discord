@@ -163,7 +163,11 @@ export async function startBot(): Promise<void> {
 
   // Wire up SDK event -> Discord message handlers
   setupEventHandlers(client);
-  setupUsageTracker(client);
+
+  // Start usage tracker after login so guild cache is populated
+  client.once(Events.ClientReady, () => {
+    setupUsageTracker(client);
+  });
 
   // Start
   await client.login(config.discordToken);

@@ -6,6 +6,7 @@ export interface GuildConfig {
   guildId: string;
   generalCategoryId: string;
   sessionsCategoryId: string;
+  archiveCategoryId: string;
   generalChannelId: string;
   sessionChannelId: string;
   usageChannelId?: string;

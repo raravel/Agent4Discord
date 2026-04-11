@@ -23,9 +23,9 @@ export async function handleInit(interaction: ChatInputCommandInteraction): Prom
 
   // Check bot permissions
   const botMember = guild.members.me;
-  if (!botMember || !botMember.permissions.has([PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageGuild])) {
+  if (!botMember || !botMember.permissions.has([PermissionsBitField.Flags.ManageChannels, PermissionsBitField.Flags.ManageGuild, PermissionsBitField.Flags.ManageRoles])) {
     await interaction.reply({
-      content: 'I need the "Manage Channels" and "Manage Server" permissions to set up A4D. Please check my role permissions.',
+      content: 'I need the "Manage Channels", "Manage Server", and "Manage Roles" permissions to set up A4D. Please check my role permissions.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -71,6 +71,7 @@ async function validateChannels(guild: Guild, config: GuildConfig): Promise<bool
     return (
       channels.has(config.generalCategoryId) &&
       channels.has(config.sessionsCategoryId) &&
+      channels.has(config.archiveCategoryId) &&
       channels.has(config.generalChannelId) &&
       channels.has(config.sessionChannelId)
     );
@@ -152,6 +153,21 @@ async function createGuildStructure(
     });
   }
 
+  // Create or reuse "A4D - Archive" category (read-only for @everyone)
+  let archiveCategory: CategoryChannel;
+  if (existing?.archiveCategoryId && guild.channels.cache.has(existing.archiveCategoryId)) {
+    archiveCategory = guild.channels.cache.get(existing.archiveCategoryId) as CategoryChannel;
+  } else {
+    archiveCategory = await guild.channels.create({
+      name: 'A4D - Archive',
+      type: ChannelType.GuildCategory,
+    });
+  }
+  // Ensure archive category denies SendMessages for @everyone
+  await archiveCategory.permissionOverwrites.edit(guild.roles.everyone, {
+    SendMessages: false,
+  });
+
   // Set default notifications to @mentions only
   await guild.setDefaultMessageNotifications(GuildDefaultMessageNotifications.OnlyMentions);
 
@@ -166,6 +182,7 @@ async function createGuildStructure(
     guildId: guild.id,
     generalCategoryId: generalCategory.id,
     sessionsCategoryId: sessionsCategory.id,
+    archiveCategoryId: archiveCategory.id,
     generalChannelId,
     sessionChannelId,
     usageChannelId,

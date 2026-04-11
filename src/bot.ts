@@ -15,6 +15,7 @@ import { setupUsageTracker } from './sessions/usageTracker.js';
 import { processAttachments } from './utils/attachments.js';
 import type { ContentBlockParam } from '@anthropic-ai/sdk/resources';
 import { checkForUpdates } from './utils/updateCheck.js';
+import { setupAutoArchive } from './sessions/autoArchive.js';
 
 export async function startBot(): Promise<void> {
   void checkForUpdates();
@@ -166,9 +167,10 @@ export async function startBot(): Promise<void> {
   // Wire up SDK event -> Discord message handlers
   setupEventHandlers(client);
 
-  // Start usage tracker after login so guild cache is populated
+  // Start usage tracker and auto-archive after login so guild cache is populated
   client.once(Events.ClientReady, () => {
     setupUsageTracker(client);
+    setupAutoArchive(client);
   });
 
   // Start

@@ -14,6 +14,7 @@ import {
 const PERMISSION_BITS: bigint =
   BigInt(0x20) |          // Manage Guild
   BigInt(0x10) |          // Manage Channels
+  BigInt(0x10000000) |    // Manage Roles
   BigInt(0x800) |         // Send Messages
   BigInt(0x4000) |        // Embed Links
   BigInt(0x8000) |        // Attach Files

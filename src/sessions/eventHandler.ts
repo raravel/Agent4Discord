@@ -141,6 +141,12 @@ async function finalizeStreamsForChannel(channelId: string): Promise<boolean> {
   return hadTextStream;
 }
 
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return `${count}`;
+}
+
 let handlersRegistered = false;
 
 export function setupEventHandlers(client: Client): void {
@@ -311,7 +317,7 @@ export function setupEventHandlers(client: Client): void {
   });
 
   // --- Result events ---
-  sessionManager.on('result', async (channelId: string, _msg: SDKResultMessage) => {
+  sessionManager.on('result', async (channelId: string, msg: SDKResultMessage) => {
     stopTyping(channelId);
 
     // Clean up any lingering stream handlers
@@ -333,7 +339,8 @@ export function setupEventHandlers(client: Client): void {
 
     const textChannel = channel as TextChannel;
 
-    // Update the pinned status embed with new cost
+    // Update the pinned status embed with new cost and extract model name
+    let modelName = 'opus';
     try {
       const pinned = await textChannel.messages.fetchPins();
       const statusMsg = pinned.items.find(
@@ -341,11 +348,12 @@ export function setupEventHandlers(client: Client): void {
       )?.message;
       if (statusMsg) {
         const embed = statusMsg.embeds[0];
+        modelName = embed?.fields.find((f) => f.name === 'Model')?.value ?? 'opus';
         const updatedEmbed = buildStatusEmbed({
           status: 'Session Active',
           color: COLORS.IDLE,
           cwd: embed?.fields.find((f) => f.name === 'Directory')?.value ?? session.cwd,
-          model: embed?.fields.find((f) => f.name === 'Model')?.value ?? 'opus',
+          model: modelName,
           sessionId: session.sessionId || 'pending',
           costUsd: session.totalCostUsd,
           startedAt: session.createdAt,
@@ -370,9 +378,58 @@ export function setupEventHandlers(client: Client): void {
       // Reaction cleanup is best-effort
     }
 
-    // Mention user to notify that the response is complete
+    // Mention user with statusline info
     if (session.userId) {
-      await textChannel.send(`<@${session.userId}> Done.`).catch(() => {});
+      const resultAny = msg as any;
+      const durationMs: number = resultAny.duration_ms ?? 0;
+      const costUsd: number = resultAny.total_cost_usd ?? session.totalCostUsd;
+
+      // usage (NonNullableUsage) uses snake_case from BetaUsage;
+      // modelUsage (Record<string, ModelUsage>) uses camelCase.
+      // Try both conventions to be safe.
+      const usage = resultAny.usage ?? {};
+      const inputTokens: number = usage.input_tokens ?? usage.inputTokens ?? 0;
+      const outputTokens: number = usage.output_tokens ?? usage.outputTokens ?? 0;
+      const cacheRead: number = usage.cache_read_input_tokens ?? usage.cacheReadInputTokens ?? 0;
+
+      // Calculate context usage percentage
+      const cacheCreate: number = usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens ?? 0;
+      const contextUsed = inputTokens + cacheRead + cacheCreate;
+
+      // Get context window from modelUsage, fall back to model defaults
+      let contextWindow = 0;
+      const modelUsage: Record<string, any> = resultAny.modelUsage ?? {};
+      const modelKeys = Object.keys(modelUsage);
+      if (modelKeys.length > 0) {
+        contextWindow = modelUsage[modelKeys[0]]?.contextWindow ?? 0;
+      }
+      if (contextWindow === 0) {
+        // Default context windows by model
+        const defaults: Record<string, number> = {
+          opus: 1_000_000, sonnet: 200_000, haiku: 200_000,
+        };
+        contextWindow = defaults[modelName] ?? 200_000;
+      }
+
+      const contextPct = contextUsed > 0
+        ? `ctx ${((contextUsed / contextWindow) * 100).toFixed(1)}%`
+        : null;
+
+      const durationStr = durationMs >= 60_000
+        ? `${(durationMs / 60_000).toFixed(1)}m`
+        : `${(durationMs / 1000).toFixed(1)}s`;
+
+      const parts = [
+        modelName,
+        `${formatTokens(inputTokens)}↓ ${formatTokens(outputTokens)}↑`,
+        cacheRead > 0 ? `${formatTokens(cacheRead)} cache` : null,
+        contextPct,
+        `$${costUsd.toFixed(4)}`,
+        durationStr,
+      ].filter(Boolean);
+
+      const statusLine = parts.join(' · ');
+      await textChannel.send(`<@${session.userId}> Done. │ ${statusLine}`).catch(() => {});
     }
   });
 

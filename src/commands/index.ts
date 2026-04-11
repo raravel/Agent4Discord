@@ -9,6 +9,7 @@ import { handleResume } from './resume.js';
 import { handleModel } from './model.js';
 import { handleClose } from './close.js';
 import { handleSkill } from './skill.js';
+import { handleSh } from './sh.js';
 
 /** Handler function type for slash commands. */
 export type CommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -39,7 +40,7 @@ const a4dCommand = new SlashCommandBuilder()
       )
   )
   .addSubcommand((sub) =>
-    sub.setName('close').setDescription('Stop the session and delete this channel')
+    sub.setName('close').setDescription('Stop the session and archive this channel')
   )
   .addSubcommand((sub) =>
     sub.setName('skill')
@@ -48,6 +49,15 @@ const a4dCommand = new SlashCommandBuilder()
         opt.setName('command')
           .setDescription('Command to execute (omit to list all)')
           .setRequired(false)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub.setName('sh')
+      .setDescription('Run a shell command in the session working directory')
+      .addStringOption((opt) =>
+        opt.setName('command')
+          .setDescription('Shell command to execute')
+          .setRequired(true)
       )
   );
 
@@ -68,6 +78,8 @@ commands.set('a4d', async (interaction: ChatInputCommandInteraction) => {
     await handleClose(interaction);
   } else if (subcommand === 'skill') {
     await handleSkill(interaction);
+  } else if (subcommand === 'sh') {
+    await handleSh(interaction);
   }
 });
 

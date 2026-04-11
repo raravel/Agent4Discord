@@ -29,11 +29,14 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
     return;
   }
 
-  // Check if this channel is under the Sessions category
+  // Check if this channel is under the Sessions or Archive category
   const channel = interaction.channel as TextChannel;
-  if (channel.parentId !== guildConfig.sessionsCategoryId) {
+  const isInSessions = channel.parentId === guildConfig.sessionsCategoryId;
+  const isInArchive = channel.parentId === guildConfig.archiveCategoryId;
+
+  if (!isInSessions && !isInArchive) {
     await interaction.reply({
-      content: 'This command can only be used in a session channel under "A4D - Sessions".',
+      content: 'This command can only be used in a session channel under "A4D - Sessions" or "A4D - Archive".',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -103,10 +106,15 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
-    // If channel was archived (read-only), restore write permissions
-    await channel.permissionOverwrites.edit(guild.roles.everyone, {
-      SendMessages: null, // reset to inherit
-    }).catch(() => {});
+    // If channel was archived, move it back to Sessions category (inherits writable permissions)
+    if (isInArchive) {
+      await channel.setParent(guildConfig.sessionsCategoryId, {
+        reason: 'A4D session resumed from archive',
+        lockPermissions: true,
+      }).catch((err) => {
+        console.error('[resume] Failed to move channel to Sessions category:', err);
+      });
+    }
 
     // Resume the session
     const session = sessionManager.resumeSession(

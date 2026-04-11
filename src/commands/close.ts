@@ -3,13 +3,11 @@ import {
   type ChatInputCommandInteraction,
   type TextChannel,
 } from 'discord.js';
-import { sessionManager } from '../sessions/sessionManager.js';
-import { removeSessionFromGuild } from '../sessions/sessionStore.js';
 import { loadGuildConfig } from '../guild.js';
-import { clearAlwaysAllowed } from '../interactions/permissionHandler.js';
+import { archiveChannel } from '../sessions/archiveUtils.js';
 
 /**
- * Handle /a4d close — stop the session and delete the channel.
+ * Handle /a4d close — stop the session and archive the channel.
  */
 export async function handleClose(interaction: ChatInputCommandInteraction): Promise<void> {
   const channel = interaction.channel as TextChannel | null;
@@ -32,21 +30,8 @@ export async function handleClose(interaction: ChatInputCommandInteraction): Pro
     return;
   }
 
-  // Stop session if active
-  const session = sessionManager.getSession(channel.id);
-  if (session) {
-    sessionManager.stopSession(channel.id);
-    removeSessionFromGuild(session.guildId, channel.id);
-  }
-  clearAlwaysAllowed(channel.id);
+  await interaction.reply({ content: 'Archiving session...' });
 
-  await interaction.reply({ content: 'Closing session and deleting channel...' });
-
-  // Delete the channel
-  try {
-    await channel.delete('A4D session closed by user');
-  } catch (err) {
-    console.error('[close] Failed to delete channel:', err);
-    // Channel might already be deleted or bot lacks permission
-  }
+  // Archive the channel (stop session, move to archive category, make read-only)
+  await archiveChannel(channel, guildConfig, 'A4D session closed by user');
 }

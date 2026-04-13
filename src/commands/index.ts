@@ -12,6 +12,7 @@ import { handleSkill } from './skill.js';
 import { handleSh } from './sh.js';
 import { handleBrowser } from './browser.js';
 import { handlePermission as handlePermissionCmd } from './permission.js';
+import { handleFork } from './fork.js';
 
 /** Handler function type for slash commands. */
 export type CommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -67,6 +68,9 @@ const a4dCommand = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub.setName('permission').setDescription('Change the permission mode for this session')
+  )
+  .addSubcommand((sub) =>
+    sub.setName('fork').setDescription('Fork this session into a new channel')
   );
 
 /** Map of command names to their handler functions. */
@@ -92,6 +96,8 @@ commands.set('a4d', async (interaction: ChatInputCommandInteraction) => {
     await handleBrowser(interaction);
   } else if (subcommand === 'permission') {
     await handlePermissionCmd(interaction);
+  } else if (subcommand === 'fork') {
+    await handleFork(interaction);
   }
 });
 

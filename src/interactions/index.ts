@@ -18,6 +18,17 @@ import {
   handleSessionStart,
 } from './directoryBrowser.js';
 import { handlePermission } from './permissionHandler.js';
+import {
+  handleFbBrowse,
+  handleFbClose,
+  handleFbBack,
+  handleFbDownload,
+  handleFbFilePrev,
+  handleFbFileNext,
+  handleFbNext,
+  handleFbParent,
+  handleFbPrev,
+} from './fileBrowser.js';
 import { handleUsageRefresh } from '../sessions/usageTracker.js';
 
 /**
@@ -85,7 +96,44 @@ export async function routeInteraction(
     return;
   }
 
-  // Session control buttons removed — use /a4d close instead
+  if (customId.startsWith('a4d:fb:')) {
+    switch (customId) {
+      case 'a4d:fb:browse':
+        await handleFbBrowse(interaction as StringSelectMenuInteraction);
+        return;
+      case 'a4d:fb:parent':
+        await handleFbParent(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:prev':
+        await handleFbPrev(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:next':
+        await handleFbNext(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:back':
+        await handleFbBack(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:fprev':
+        await handleFbFilePrev(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:fnext':
+        await handleFbFileNext(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:download':
+        await handleFbDownload(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:close':
+        await handleFbClose(interaction as ButtonInteraction);
+        return;
+      case 'a4d:fb:pageinfo':
+      case 'a4d:fb:fpageinfo':
+        await interaction.deferUpdate();
+        return;
+      default:
+        await interaction.reply({ content: 'Unknown file browser action.', ephemeral: true });
+        return;
+    }
+  }
 
   if (customId === 'a4d:usage:refresh') {
     await handleUsageRefresh(interaction as ButtonInteraction);

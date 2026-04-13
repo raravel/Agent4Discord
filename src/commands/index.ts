@@ -10,6 +10,7 @@ import { handleModel } from './model.js';
 import { handleClose } from './close.js';
 import { handleSkill } from './skill.js';
 import { handleSh } from './sh.js';
+import { handleBrowser } from './browser.js';
 
 /** Handler function type for slash commands. */
 export type CommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -59,6 +60,9 @@ const a4dCommand = new SlashCommandBuilder()
           .setDescription('Shell command to execute')
           .setRequired(true)
       )
+  )
+  .addSubcommand((sub) =>
+    sub.setName('browser').setDescription('Open a read-only file browser in a thread')
   );
 
 /** Map of command names to their handler functions. */
@@ -80,6 +84,8 @@ commands.set('a4d', async (interaction: ChatInputCommandInteraction) => {
     await handleSkill(interaction);
   } else if (subcommand === 'sh') {
     await handleSh(interaction);
+  } else if (subcommand === 'browser') {
+    await handleBrowser(interaction);
   }
 });
 

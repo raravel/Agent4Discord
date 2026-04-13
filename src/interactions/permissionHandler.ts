@@ -89,7 +89,7 @@ export async function requestPermission(
       .setStyle(ButtonStyle.Secondary),
   );
 
-  const msg = await channel.send({ embeds: [embed], components: [row] });
+  const msg = await channel.send({ content: `<@${userId}>`, embeds: [embed], components: [row] });
 
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {

@@ -1,3 +1,4 @@
+import { ChannelType, ThreadAutoArchiveDuration } from 'discord.js';
 import type { Client, TextChannel, ThreadChannel } from 'discord.js';
 import type { SDKAssistantMessage, SDKResultMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import { sessionManager } from './sessionManager.js';
@@ -6,6 +7,8 @@ import { buildStatusEmbed, COLORS } from '../formatters/embedBuilder.js';
 import { StreamHandler } from './streamHandler.js';
 import { ToolProgressHandler } from './toolProgress.js';
 import { formatThreadName, formatToolInput, formatToolResult, sendToThread } from '../formatters/toolFormatter.js';
+import { trackChange, consumeChanges, storeDiffs } from './changeTracker.js';
+import { buildDiffMessage } from '../interactions/diffViewer.js';
 
 // Track typing indicator intervals per channel
 const typingIntervals = new Map<string, ReturnType<typeof setInterval>>();
@@ -243,6 +246,23 @@ export function setupEventHandlers(client: Client): void {
         }
 
         for (const block of toolUseBlocks) {
+          // Track Edit/Write for diff viewer
+          const input = block.input as Record<string, any> | undefined;
+          if (block.name === 'Edit' && input?.file_path && input.old_string !== undefined) {
+            trackChange(channelId, {
+              type: 'edit',
+              filePath: input.file_path,
+              oldString: String(input.old_string),
+              newString: String(input.new_string ?? ''),
+            });
+          } else if (block.name === 'Write' && input?.file_path && input.content !== undefined) {
+            trackChange(channelId, {
+              type: 'write',
+              filePath: input.file_path,
+              content: String(input.content),
+            });
+          }
+
           const threadName = formatThreadName(block.name || 'unknown', block.input || {});
           const thread = await textChannel.threads.create({
             name: threadName,
@@ -430,6 +450,31 @@ export function setupEventHandlers(client: Client): void {
 
       const statusLine = parts.join(' · ');
       await textChannel.send(`<@${session.userId}> Done. │ ${statusLine}`).catch(() => {});
+    }
+
+    // Auto-create diff thread if there were file changes
+    const diffs = consumeChanges(channelId);
+    if (diffs.length > 0) {
+      try {
+        const totalChanges = diffs.reduce((sum, d) => sum + d.changes.length, 0);
+        const threadName =
+          diffs.length === 1
+            ? `\uD83D\uDCCA ${diffs[0].filePath.split(/[/\\]/).pop()}`
+            : `\uD83D\uDCCA Changes (${diffs.length} files)`;
+
+        const diffThread = await textChannel.threads.create({
+          name: threadName.slice(0, 100),
+          autoArchiveDuration: ThreadAutoArchiveDuration.OneHour,
+          type: ChannelType.PublicThread,
+          reason: `A4D diff viewer — ${totalChanges} change(s)`,
+        });
+
+        storeDiffs(diffThread.id, diffs);
+        const diffMsg = buildDiffMessage(diffs, 0, 0);
+        await diffThread.send(diffMsg);
+      } catch (err) {
+        console.error('[diff] Failed to create diff thread:', err);
+      }
     }
   });
 

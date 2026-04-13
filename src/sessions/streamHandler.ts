@@ -28,6 +28,7 @@ export class StreamHandler {
 
   private async flush(): Promise<void> {
     this.timer = null;
+    if (this.finalized) return;
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
 
     if (this.type === 'text') {
@@ -53,17 +54,21 @@ export class StreamHandler {
   }
 
   private async sendOrEdit(embed: EmbedBuilder): Promise<void> {
+    if (this.finalized) return;
     try {
       if (this.messageId) {
         const msg = await this.channel.messages.fetch(this.messageId).catch(() => null);
-        if (msg) {
+        if (msg && !this.finalized) {
           await msg.edit({ embeds: [embed] });
           return;
         }
       }
+      if (this.finalized) return;
       const msg = await this.channel.send({ embeds: [embed] });
       this.messageId = msg.id;
-    } catch (err) {
+    } catch (err: any) {
+      // 10008 = Unknown Message (deleted between fetch and edit, race with finalize)
+      if (err?.code === 10008) return;
       console.error('[stream] Failed to update embed:', err);
     }
   }

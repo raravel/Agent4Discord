@@ -29,6 +29,12 @@ import {
   handleFbParent,
   handleFbPrev,
 } from './fileBrowser.js';
+import {
+  handleDiffFileSelect,
+  handleDiffPrev,
+  handleDiffNext,
+  handleDiffClose,
+} from './diffViewer.js';
 import { handleUsageRefresh } from '../sessions/usageTracker.js';
 
 /**
@@ -131,6 +137,29 @@ export async function routeInteraction(
         return;
       default:
         await interaction.reply({ content: 'Unknown file browser action.', ephemeral: true });
+        return;
+    }
+  }
+
+  if (customId.startsWith('a4d:diff:')) {
+    switch (customId) {
+      case 'a4d:diff:file':
+        await handleDiffFileSelect(interaction as StringSelectMenuInteraction);
+        return;
+      case 'a4d:diff:prev':
+        await handleDiffPrev(interaction as ButtonInteraction);
+        return;
+      case 'a4d:diff:next':
+        await handleDiffNext(interaction as ButtonInteraction);
+        return;
+      case 'a4d:diff:close':
+        await handleDiffClose(interaction as ButtonInteraction);
+        return;
+      case 'a4d:diff:pageinfo':
+        await interaction.deferUpdate();
+        return;
+      default:
+        await interaction.reply({ content: 'Unknown diff action.', ephemeral: true });
         return;
     }
   }

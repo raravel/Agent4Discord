@@ -35,6 +35,7 @@ import {
   handleDiffNext,
   handleDiffClose,
 } from './diffViewer.js';
+import { handlePermissionModeChange } from '../commands/permission.js';
 import { handleUsageRefresh } from '../sessions/usageTracker.js';
 
 /**
@@ -99,6 +100,11 @@ export async function routeInteraction(
 
   if (customId === 'a4d:perm-mode:select') {
     await handlePermModeSelect(interaction as StringSelectMenuInteraction);
+    return;
+  }
+
+  if (customId === 'a4d:permc:select') {
+    await handlePermissionModeChange(interaction as StringSelectMenuInteraction);
     return;
   }
 

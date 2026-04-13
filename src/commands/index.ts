@@ -11,6 +11,7 @@ import { handleClose } from './close.js';
 import { handleSkill } from './skill.js';
 import { handleSh } from './sh.js';
 import { handleBrowser } from './browser.js';
+import { handlePermission as handlePermissionCmd } from './permission.js';
 
 /** Handler function type for slash commands. */
 export type CommandHandler = (interaction: ChatInputCommandInteraction) => Promise<void>;
@@ -63,6 +64,9 @@ const a4dCommand = new SlashCommandBuilder()
   )
   .addSubcommand((sub) =>
     sub.setName('browser').setDescription('Open a read-only file browser in a thread')
+  )
+  .addSubcommand((sub) =>
+    sub.setName('permission').setDescription('Change the permission mode for this session')
   );
 
 /** Map of command names to their handler functions. */
@@ -86,6 +90,8 @@ commands.set('a4d', async (interaction: ChatInputCommandInteraction) => {
     await handleSh(interaction);
   } else if (subcommand === 'browser') {
     await handleBrowser(interaction);
+  } else if (subcommand === 'permission') {
+    await handlePermissionCmd(interaction);
   }
 });
 

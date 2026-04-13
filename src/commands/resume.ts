@@ -10,7 +10,7 @@ import { sessionManager } from '../sessions/sessionManager.js';
 import { saveSessionToGuild } from '../sessions/sessionStore.js';
 import { loadGuildConfig } from '../guild.js';
 import { buildStatusEmbed, COLORS } from '../formatters/embedBuilder.js';
-import { requestPermission } from '../interactions/permissionHandler.js';
+import { createPermissionCallback } from '../interactions/permissionHandler.js';
 
 /**
  * Handle `/a4d resume` -- resume a stopped/archived session in the current channel.
@@ -124,9 +124,7 @@ export async function handleResume(interaction: ChatInputCommandInteraction): Pr
       sessionId,
       cwd,
       model,
-      async (toolName, input) => {
-        return requestPermission(channel, interaction.user.id, toolName, input);
-      },
+      createPermissionCallback(channel, interaction.user.id),
       interaction.client,
     );
 

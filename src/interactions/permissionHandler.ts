@@ -12,6 +12,7 @@ import {
 import type { PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 import { COLORS } from '../formatters/embedBuilder.js';
 import { formatToolInput, getToolEmoji } from '../formatters/toolFormatter.js';
+import { sessionManager } from '../sessions/sessionManager.js';
 
 // Auto-allow these safe tools
 const AUTO_ALLOW_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LSP']);
@@ -183,4 +184,35 @@ function buildDisabledRow(): ActionRowBuilder<MessageActionRowComponentBuilder> 
     new ButtonBuilder().setCustomId('a4d:perm:x:deny').setLabel('Deny').setStyle(ButtonStyle.Danger).setDisabled(true),
     new ButtonBuilder().setCustomId('a4d:perm:x:details').setLabel('Details').setStyle(ButtonStyle.Secondary).setDisabled(true),
   );
+}
+
+// Write-category tools denied in plan mode
+const WRITE_TOOLS = new Set(['Edit', 'Write', 'Bash', 'NotebookEdit']);
+
+/**
+ * Create a canUseTool callback that respects the session's current permissionMode.
+ * The mode is read at call time, so runtime changes via /a4d permission take effect immediately.
+ */
+export function createPermissionCallback(
+  channel: TextChannel,
+  userId: string,
+): (toolName: string, toolInput: Record<string, unknown>) => Promise<PermissionResult> {
+  return async (toolName, toolInput) => {
+    const session = sessionManager.getSession(channel.id);
+    const mode = session?.permissionMode ?? 'default';
+
+    if (mode === 'bypassPermissions') {
+      return { behavior: 'allow', updatedInput: {} };
+    }
+
+    if (mode === 'acceptEdits' && (toolName === 'Edit' || toolName === 'Write')) {
+      return { behavior: 'allow', updatedInput: {} };
+    }
+
+    if (mode === 'plan' && WRITE_TOOLS.has(toolName)) {
+      return { behavior: 'deny', message: 'Write operations are not allowed in plan mode.' };
+    }
+
+    return requestPermission(channel, userId, toolName, toolInput);
+  };
 }

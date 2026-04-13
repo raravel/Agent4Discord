@@ -25,7 +25,7 @@ import { loadGuildConfig } from '../guild.js';
 import { sessionManager } from '../sessions/sessionManager.js';
 import { saveSessionToGuild } from '../sessions/sessionStore.js';
 import { buildStatusEmbed, COLORS } from '../formatters/embedBuilder.js';
-import { requestPermission } from './permissionHandler.js';
+import { createPermissionCallback } from './permissionHandler.js';
 
 const HOMEDIR = os.homedir();
 const MAX_SELECT_OPTIONS = 25;
@@ -629,12 +629,7 @@ export async function handleModelConfirm(interaction: ButtonInteraction): Promis
       channel.id,
       cwdPath,
       model,
-      async (toolName, input, options) => {
-        console.log(`[canUseTool] Called: tool=${toolName}, toolUseID=${options?.toolUseID}`);
-        const result = await requestPermission(channel as TextChannel, interaction.user.id, toolName, input);
-        console.log(`[canUseTool] Resolved: tool=${toolName}, behavior=${result.behavior}`);
-        return result;
-      },
+      createPermissionCallback(channel as TextChannel, interaction.user.id),
       interaction.client,
       permissionMode,
     );
@@ -879,12 +874,7 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
       state.selectedSessionId,
       state.path,
       undefined, // model
-      async (toolName, input, options) => {
-        console.log(`[canUseTool] Called: tool=${toolName}, toolUseID=${options?.toolUseID}`);
-        const result = await requestPermission(channel as TextChannel, interaction.user.id, toolName, input);
-        console.log(`[canUseTool] Resolved: tool=${toolName}, behavior=${result.behavior}`);
-        return result;
-      },
+      createPermissionCallback(channel as TextChannel, interaction.user.id),
       interaction.client,
       'default', // permissionMode
     );

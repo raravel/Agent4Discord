@@ -27,6 +27,7 @@ export interface ActiveSession {
   sessionId: string;
   cwd: string;
   state: SessionState;
+  permissionMode: PermissionMode;
   totalCostUsd: number;
   createdAt: string;
   resolveNext: ((msg: SDKUserMessage) => void) | null;
@@ -77,7 +78,7 @@ class SessionManager extends EventEmitter {
       options: {
         cwd,
         model: model || 'opus',
-        permissionMode: permissionMode ?? 'default',
+        permissionMode: permissionMode === 'plan' ? 'plan' : 'default',
         includePartialMessages: true,
         abortController: controller,
         canUseTool,
@@ -95,6 +96,7 @@ class SessionManager extends EventEmitter {
       sessionId: '',
       cwd,
       state: 'running',
+      permissionMode: permissionMode ?? 'default',
       totalCostUsd: 0,
       createdAt: new Date().toISOString(),
       resolveNext: null,
@@ -161,7 +163,7 @@ class SessionManager extends EventEmitter {
       options: {
         cwd,
         model: model || 'opus',
-        permissionMode: permissionMode ?? 'default',
+        permissionMode: permissionMode === 'plan' ? 'plan' : 'default',
         includePartialMessages: true,
         abortController: controller,
         resume: sessionId,
@@ -180,6 +182,7 @@ class SessionManager extends EventEmitter {
       sessionId,
       cwd,
       state: 'running',
+      permissionMode: permissionMode ?? 'default',
       totalCostUsd: 0,
       createdAt: new Date().toISOString(),
       resolveNext: null,

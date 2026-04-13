@@ -404,36 +404,20 @@ export function setupEventHandlers(client: Client): void {
       const durationMs: number = resultAny.duration_ms ?? 0;
       const costUsd: number = resultAny.total_cost_usd ?? session.totalCostUsd;
 
-      // usage (NonNullableUsage) uses snake_case from BetaUsage;
-      // modelUsage (Record<string, ModelUsage>) uses camelCase.
-      // Try both conventions to be safe.
+      // Cumulative usage (for token counts display)
       const usage = resultAny.usage ?? {};
       const inputTokens: number = usage.input_tokens ?? usage.inputTokens ?? 0;
       const outputTokens: number = usage.output_tokens ?? usage.outputTokens ?? 0;
       const cacheRead: number = usage.cache_read_input_tokens ?? usage.cacheReadInputTokens ?? 0;
 
-      // Calculate context usage percentage
-      const cacheCreate: number = usage.cache_creation_input_tokens ?? usage.cacheCreationInputTokens ?? 0;
-      const contextUsed = inputTokens + cacheRead + cacheCreate;
-
-      // Get context window from modelUsage, fall back to model defaults
-      let contextWindow = 0;
-      const modelUsage: Record<string, any> = resultAny.modelUsage ?? {};
-      const modelKeys = Object.keys(modelUsage);
-      if (modelKeys.length > 0) {
-        contextWindow = modelUsage[modelKeys[0]]?.contextWindow ?? 0;
-      }
-      if (contextWindow === 0) {
-        // Default context windows by model
-        const defaults: Record<string, number> = {
-          opus: 1_000_000, sonnet: 200_000, haiku: 200_000,
-        };
-        contextWindow = defaults[modelName] ?? 200_000;
-      }
-
-      const contextPct = contextUsed > 0
-        ? `ctx ${((contextUsed / contextWindow) * 100).toFixed(1)}%`
-        : null;
+      // Real-time context window usage via SDK (same as Claude Code CLI)
+      let contextPct: string | null = null;
+      try {
+        const ctx = await session.query.getContextUsage();
+        if (ctx.percentage > 0) {
+          contextPct = `ctx ${ctx.percentage.toFixed(1)}%`;
+        }
+      } catch { /* best-effort */ }
 
       const durationStr = durationMs >= 60_000
         ? `${(durationMs / 60_000).toFixed(1)}m`

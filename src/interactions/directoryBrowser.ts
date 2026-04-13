@@ -926,6 +926,8 @@ export async function handleResumeStart(interaction: ButtonInteraction): Promise
 /**
  * Load and post previous conversation history into a session channel.
  */
+const MAX_HISTORY_MESSAGES = 10;
+
 async function postSessionHistory(
   channel: TextChannel,
   sessionId: string,
@@ -935,14 +937,22 @@ async function postSessionHistory(
     const messages = await getSessionMessages(sessionId, { dir: cwd, limit: 50 });
     if (messages.length === 0) return;
 
+    // Keep only the most recent messages so the latest context is visible
+    const skipped = Math.max(0, messages.length - MAX_HISTORY_MESSAGES);
+    const recent = messages.slice(-MAX_HISTORY_MESSAGES);
+
+    const desc = skipped > 0
+      ? `Showing last ${recent.length} of ${messages.length} messages (${skipped} earlier messages omitted).`
+      : `Showing ${recent.length} messages from this session.`;
+
     await channel.send({
       embeds: [new EmbedBuilder()
         .setTitle('Previous Conversation')
-        .setDescription(`Showing last ${messages.length} messages from this session.`)
+        .setDescription(desc)
         .setColor(0x95a5a6)],
     });
 
-    for (const msg of messages) {
+    for (const msg of recent) {
       const content = msg.message as { role: string; content: unknown };
       let text = '';
 
